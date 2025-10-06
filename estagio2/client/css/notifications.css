@@ -1,0 +1,14 @@
+.noticiaActual .noticiaTitulo {border-bottom: 4px solid #e28049;}
+.noticiaTitulo h2 {width: 70%;}
+.react-datepicker-popper { z-index: 999 !important; }
+.noticiaPost {margin-top: 20px;}
+@media (min-width: 1100px) and (orientation: landscape) {
+.notifications .desplegableFecha {margin-top:30px;}
+}
+@media (max-width: 500px) {
+    .noticiaTitulo h2 {width: 55%;}
+}
+
+.fechaNoticia {display: flex; justify-content: space-between; flex-wrap: nowrap; align-items: center;}
+.fechaNoticia input {padding-left: 30px !important;}
+.fechaNoticia i {font-size: 20px; font-weight: 100; margin-bottom: 10px; color: #333; position: absolute; margin-left: 5px;}

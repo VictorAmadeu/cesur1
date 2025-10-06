@@ -1,0 +1,8 @@
+{
+  "public": {
+    "photoUrl": "https://localhost:8000/uploads/companiesLogoAPP",
+    "baseUrl": "https://127.0.0.1:8000/api/"
+  },
+  "private": {},
+  "TZ": "Europe/Madrid"
+}

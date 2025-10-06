@@ -1,0 +1,41 @@
+.mainMenu * {font-family: calibri, helvetica, arial, sens-serif; font-size: 13.7px; padding: 0; margin: 0; box-sizing: border-box;}
+.containerMenu {position: absolute; top: 0; left: 0; right: 0; bottom: 0; padding: 10px 20px; }
+.containerMenuFlex { display:flex; width: 100%; height: 100%; flex-wrap: wrap; align-content: space-between;}
+.cabeceraMenu, .table, .footerMenu {width:100%; margin:auto;}
+.cabeceraMenu {height: 100px; display: flex; align-items: center; justify-content: space-between; margin: 0; background: rgba(255, 255, 255, .8); padding: 0 20px; }
+.cabeceraMenu .menu {width: 30%; font-size:19px; border-left: 8px solid #3a94cc; padding-left: 10px; font-family: 'Montserrat'; line-height: 30px;}
+.cabeceraMenu .menu span {font-size:34px; font-family: 'Nerko One', cursive; font-weight:bold;}
+.cabeceraMenu .fecha {width: 30%; text-align: center; font-family: 'Nerko One', cursive; font-size: 55px;}
+.cabeceraMenu .logo {width: 10%; text-align:right;}
+.cabeceraMenu .logo img {width:135px; padding-right: 10px;}
+.cabeceraMenu .slogan {width: 40%;}
+.cabeceraMenu .slogan p {font-family: 'Chilanka'; text-align: center; padding-left: 30px;}
+.cabeceraMenu .sloganS {font-size: 30px; line-height: 34px;}
+.cabeceraMenu .sloganM {font-size: 21px; line-height: 24px;}
+.cabeceraMenu .sloganL {font-size: 20px; line-height: 23px;}
+.cabeceraMenu .sloganXL {font-size: 18px; line-height: 19px;}
+.rowMenu {display: grid; grid-template-columns: repeat(5, 19.8%); background:#fff; align-content:center; justify-content:space-between; text-align:center;}
+.headerMenu .rowMenu {padding: 2px 10px; background: none;}
+.headerMenu .rowMenu div {display: flex; justify-content: center; font-weight: 600; color: #fff; font-size: 20px; padding: 5px 10px; border-radius: 20px 20px 0 0;}
+.headerMenu .rowMenu .lunes {background:#1674a3;}
+.headerMenu .rowMenu .martes {background:#f49c65;}
+.headerMenu .rowMenu .miercoles {background:#9d81ba;}
+.headerMenu .rowMenu .jueves {background:#81c1be;}
+.headerMenu .rowMenu .viernes {background:#e698b7;}
+.bodyMenu .rowMenu {padding: 2px 10px; background: none;}
+.bodyMenu .rowMenu .dia {display: flex; justify-content: space-between; flex-direction:column; background:rgba(255, 255, 255, .8); height:160px; padding:5px 10px; align-content: space-between; border-radius: 20px; border: 1px solid #ccc; font-weight: bold;}
+.bodyMenu .rowMenu .diaEco {background: rgba(130,180,125,.9);}
+.bodyMenu .rowMenu .DNum {font-weight:bold; text-align: left; height: 5px; display: flex; justify-content: space-between;}
+.bodyMenu .rowMenu .DNum p {border-radius: 25px; background: #F96305; color: #fff; position: relative; width: 21px; height: 21px; display: flex; align-items: center; justify-content: center; top: -8px; left: -14px; } 
+.bodyMenu .rowMenu .DNum img {position: relative; width: 35px; height: 35px; top: -12px; right: -6px; } 
+.bodyMenu .rowMenu .DPlato { line-height: 1.2; }
+.bodyMenu .rowMenu .dia .diaespecial {font-weight:bold; font-size: 18px; font-family: 'Nerko One', cursive; color: #3a94cc;}
+.bodyMenu .rowMenu .dia .numAlergenos {font-size: 12px; font-style: oblique;}
+.diaFestivo {font-weight:bold; font-size: 27px; font-family: 'Nerko One', cursive; color: #3a94cc; }
+.valoresMenu {width: 100%; display: flex; justify-content: space-between; flex-wrap: wrap; background: #ddd; border-radius: 10px; padding: 0 5px;}
+.valoresMenu div {width: 32%; font-size:11px; line-height: 14px;}
+.footerMenu { display: flex; background: #fff; width:80%; align-items: center; margin-right: 0;}
+.footerMenu * {font-size: 12px;}
+.footerMenu .descarga {background: #555; padding: 10px 15px; font-size: 18px; text-align: right; color: #fff;}
+.footerMenu .descarga span {font-size: 18px; font-weight: bold; text-decoration: underline;}
+.transparente * {color:rgba(255,255,255,0); background: rgba(255,255,255,0);}

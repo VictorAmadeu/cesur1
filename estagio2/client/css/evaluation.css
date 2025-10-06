@@ -1,0 +1,14 @@
+.mainEvaluation {width: 100%; max-width: 800px !important; margin: auto;}
+.mainEvaluation .tipo-evaluacion, .mainEvaluation .num-evaluacion {width: 100%; max-width: 800px; margin: auto;}
+.mainEvaluation .tipo-evaluacion a {font-weight: bold; color: #333 !important;}
+.mainEvaluation .num-evaluacion .nav-item a {margin: 0 7px; background:#f49c65; border-radius: 10px; color: #fff !important; text-align: center; font-weight: bold; padding: 5px 15px;}
+.mainEvaluation .num-evaluacion .nav-item .active {color: #333 !important; background:#ddd;}
+.mainEvaluation .informeEval {width: 100%;}
+.mainEvaluation .informeEval div:nth-child(even) .evalValoracion {background: #eee;}
+.mainEvaluation .evalTitulo {width: 100% !important; margin-top: 30px;}
+.mainEvaluation .evalTitulo h2 {font-size: 18px !important; text-align: center; width: 100%; margin-bottom: 10px;}
+.mainEvaluation .evalValoracion {display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; padding: 4px;}
+.mainEvaluation .evalValoracion .evalNombre {width: 77%;}
+.mainEvaluation .evalValoracion .evalNombre p {margin: 0;}
+.mainEvaluation .evalValoracion .evalEstrellas {display: flex; justify-content: space-around; flex-wrap: nowrap; width: 20%;}
+.mainEvaluation .evalValoracion .evalEstrellas img {width: 20px; height: 20px;}

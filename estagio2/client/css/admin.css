@@ -1,0 +1,38 @@
+.content-wrapper {min-width: 1160px; }
+
+.nav.nav-treeview a {cursor: pointer;}
+.admin th.gridjs-th, .admin td.gridjs-td {text-align: left;}
+.admin .td-gridjs-td {padding: 5px 25px !important;}
+.admin th.gridjs-th:first-child, .admin td.gridjs-td:first-child {width: 3% !important; min-width: 10px !important; text-align: center;}
+.admin th.gridjs-th:last-child, .admin td.gridjs-td:last-child {width: 7% !important; min-width: 40px !important; text-align: center;}
+
+.filesMenu{ width:100%; border: 2px dashed #adb5bd; border-radius: 20px; height: 250px; cursor: pointer; padding: 10px; overflow: auto; box-sizing: border-box;}
+.filesMenu div {padding: 2px 5px; width: 100%; display: flex; flex-wrap: nowrap; align-items: center; z-index: 99999999 !important; }
+.filesMenu div p {background: #eee; padding: 2px 10px; margin: 0; width: 100%; }
+
+.filesSaved{ width:100%; border: 2px solid #adb5bd; height: 250px; padding: 10px; overflow-x: hidden; overflow-y: auto;}
+.filesSaved div {padding: 2px 5px; width: 100%; display: flex; flex-wrap: nowrap; align-items: center; z-index: 99999999 !important; }
+.filesSaved div p {background: #eee; padding: 2px 10px; margin: 0; width: 100%; }
+
+.imageNew{ width:100%; border: 2px dashed #adb5bd; border-radius: 20px; height: 65px; cursor: pointer; padding: 10px;}
+.imageNew div {padding: 2px 5px; width: 100%; display: flex; flex-wrap: nowrap; align-items: center; z-index: 99999999 !important; }
+.imageNew div p {background: #eee; padding: 2px 10px; margin: 0; width: 100%; }
+
+.ImageSaved{ width:100%; border: 2px solid #adb5bd; height: 150px; padding: 10px; overflow-x: hidden; overflow-y: hidden;}
+.ImageSaved div {padding: 2px 5px; width: 100%; display: flex; flex-wrap: nowrap; align-items: center; z-index: 99999999 !important; }
+.ImageSaved div p {background: #eee; padding: 2px 10px; margin: 0; width: 100%; }
+
+.menuDisp article{width: 100%;}
+.menuDisp .descargasTitulo {margin-top: 0;}
+.removedFile {background: #dc3545 !important; text-decoration:line-through; width: 100%; }
+
+.actionButton { display: flex; }
+
+/* Estilos para motores Webkit y blink (Chrome, Safari, Opera... )*/
+
+.filesMenu::-webkit-scrollbar {-webkit-appearance: none;}
+.filesMenu::-webkit-scrollbar:vertical { width:10px;}
+.filesMenu::-webkit-scrollbar-button:increment,.filesMenu::-webkit-scrollbar-button {display: none;} 
+.filesMenu::-webkit-scrollbar:horizontal {height: 10px;}
+.filesMenu::-webkit-scrollbar-thumb {background-color: #797979;border-radius: 20px; border: 2px solid #f1f2f3;}
+.filesMenu::-webkit-scrollbar-track {border-radius: 10px;}

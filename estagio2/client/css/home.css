@@ -1,0 +1,242 @@
+.p15 {
+  font-size: 15px !important;
+}
+
+.bold {
+  font-weight: bold;
+}
+
+.centrado {
+  text-align: center;
+}
+
+.containerPrincipal {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.lista {
+  text-decoration: none;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.bgAzul {
+  background: #3a94cc !important;
+}
+
+.bgAzulO {
+  background: #1674a3 !important;
+}
+
+.bgNaranja {
+  background: #e28049 !important;
+}
+
+.flechaIzq {
+  transform: rotate(90deg);
+}
+
+.flechaDch {
+  transform: rotate(-90deg);
+}
+
+.lineaSeparacion {
+  background: #333333;
+  width: 50%;
+  height: 2px;
+  margin: 40px auto;
+}
+
+.desplegable *,
+.main * {
+  font-size: 18px;
+}
+
+.desplegable {
+  background: #eee;
+  width: 100%;
+  padding: 10px 20px;
+}
+
+.desplegableSelect {
+  width: 100%;
+  padding: 5px 10px;
+  background: #ddd;
+  border: none;
+  border-radius: 20px;
+  background: url(images/home/ic-flecha-desplegable.png) no-repeat right #ddd;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-position-x: 97%;
+}
+
+.desplegableFecha .containerFecha {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  align-items: center;
+  background: #ddd;
+  border: none;
+  border-radius: 10px;
+  padding: 0 20px;
+  cursor: pointer;
+}
+
+.desplegableFecha input {
+  width: 100%;
+  margin: auto;
+  padding: 5px 10px;
+  background: #ddd;
+  border: none;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.desplegableFecha {
+  width: 80%;
+  margin: 10px auto 0;
+}
+
+@media (min-width: 1100px) and (orientation: landscape) {
+  main {
+    width: 100%;
+  }
+
+  .mainHome .lineaSeparacion {
+    display: none;
+  }
+
+  .desplegable {
+    max-width: 800px;
+    margin: 20px auto;
+  }
+
+  .desplegableFecha {
+    max-width: 800px;
+  }
+}
+
+/*Datepicker*/
+.ui-datepicker-trigger {
+  cursor: pointer;
+}
+
+/*Menú home*/
+.navigationHome {
+  margin-bottom: 35px;
+}
+
+.sectionCuadro {
+  background: #eee;
+  padding: 15px 15px 0;
+  border-top: 4px solid #ddd;
+  margin-bottom: 25px;
+}
+
+.sectionCuadro h2 i {
+  font-size: 17px;
+  margin-right: 2px;
+}
+
+.sectionCuadro ul {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.sectionCuadro li {
+  width: 48%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.sectionCuadro a {
+  text-decoration: none;
+}
+
+.sectionCuadro p {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  color: #fff;
+  text-align: center;
+  margin: 0;
+  padding: 7px;
+  font-size: 15px;
+}
+
+@media (min-width: 601px) {
+  .containerPrincipal {
+    max-width: 100%;
+    padding: 0 10%;
+  }
+
+  .mainHome,
+  .mainNotifications,
+  .mainProfile {
+    max-width: 600px;
+    margin: auto;
+  }
+}
+
+@media (min-width: 800px) {
+  .mainHome {
+    max-width: 800px;
+    padding: 40px 20px;
+  }
+
+  .sectionCuadro {
+    width: 100%;
+    margin-bottom: 40px;
+  }
+
+  .navigationHome {
+    margin-top: 40px;
+  }
+}
+
+/*Notificaciones*/
+.noticiaPost {
+  padding-bottom: 15px;
+}
+
+.noticiaPost article {
+  padding: 10px;
+  background: #fff;
+  margin-bottom: 15px;
+}
+
+.noticiaTitulo {
+  padding: 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.noticiaTitulo h3,
+.noticiaTitulo i {
+  margin: 0 0 8px;
+  padding: 5px 0;
+  font-size: 15px;
+}
+
+.noticiaTexto h3,
+.noticiaTexto p {
+  margin: 0;
+  padding: 10px 0 0;
+  font-size: 15px;
+}
+
+.noticiaTitulo h2,
+.noticiaTexto h3 {
+  font-weight: bold;
+}

@@ -1,0 +1,20 @@
+.login {width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding:0 20px; align-content: center; height: 100vh; background:url(images/general/bg-intranek.jpg) no-repeat cover #ddd;}
+.login * {color: #fff; font-size: 16px; line-height: 25px;}
+.loginBox {width: 100%; max-width: 400px; padding: 25px; text-align: center; border: 1px solid #ddd; border-radius: 20px; background: #f3f3f3;}
+.login #goback {position: absolute; top: 30px; left: 30px;}
+.login #goback i {font-size: 25px;}
+.login h1 { font-size:20px; text-align: center;}
+.login img {width: 150px; margin-bottom: 10px;}
+.login a:hover {color: #3a94cc !important; text-decoration: underline;}
+.login-form {display: flex; flex-direction: column; width: 100%; max-width: 420px; margin: 20px auto; justify-content: center; align-items: center; }
+.login-form input, .login-form select {flex-grow: 1; padding: 5px 12px; background: #fff; border: 2px solid rgba(255, 255, 255, 0.4); margin-top: 7px; border-radius: 5px; width: 100%;}
+.login-form select {color: rgba(255, 255, 255, 0.5); height: 45px;}
+.login-form input:focus, .login-form select:focus {outline: 0; background: transparent;}
+.login-form .checkbox {margin-top:10px; width: 100%; text-align: left;}
+.login-form .content-input input {width: inherit;}
+.login-form .boton {padding: 5px 12px; background: #3a94cc; color:#fff; border: none; border-radius: 5px; margin:20px auto; font-size: 20px; width: 100%;}
+
+.register .login-form #labelLOPD {width: 100%; margin-top: 5px;}
+.register .login-form #checkLOPD {width: 5%; margin-right: 5px;}
+.register .login-form input::placeholder {color: rgba(255, 255, 255, 0.4);}
+.register .boton {padding: 5px 12px; background: #3a94cc; color:#fff; border: none; border-radius: 5px; margin-top: 5px; font-size: 20px; width: 100%; max-width: 420px;}
