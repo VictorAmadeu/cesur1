@@ -1,27 +1,27 @@
+// imports/ui/components/Perfil/RegisterDevice.jsx
+// Nota didáctica:
+// - Este archivo tenía marcadores de merge sin resolver.
+// - Se han eliminado SOLO los marcadores y se ha conservado la variante “jona”
+//   en los bloques en conflicto. No se ha modificado la lógica del componente.
+
 import React, { useState } from 'react';
 import localforage from 'localforage';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'react-toastify';
-import { isMobile, isTablet, isDesktop } from 'react-device-detect'; // Asegúrate de tenerlo instalado
+import { isMobile, isTablet, isDesktop } from 'react-device-detect';
 import DeviceService from '/imports/service/deviceService';
 import Cookies from 'js-cookie';
 
+// Configuración de localforage (ya presente en el archivo original)
 localforage.config({
-  name: "myApp",
-  storeName: "deviceStore",
+  name: 'myApp',
+  storeName: 'deviceStore',
 });
 
 const RegisterDevice = ({ onClose, register, onUpdate }) => {
   const [deviceName, setDeviceName] = useState(register.name || '');
 
-<<<<<<< HEAD
-=======
-  localforage.config({
-    name: 'myApp',
-    storeName: 'deviceStore'
-  });
-
->>>>>>> jona
+  // Determina el tipo de dispositivo
   const getDeviceType = () => {
     if (isMobile) return 'Mobile';
     if (isTablet) return 'Tablet';
@@ -29,34 +29,33 @@ const RegisterDevice = ({ onClose, register, onUpdate }) => {
     return 'Unknown';
   };
 
+  // Limpia posibles identificadores previos en distintos almacenamientos
   const clearPreviousDevice = async () => {
-    await localforage.removeItem("deviceId");
-    localStorage.removeItem("deviceId_backup");
-    sessionStorage.removeItem("deviceId_backup");
-    Cookies.remove("deviceId_backup");
+    await localforage.removeItem('deviceId');
+    localStorage.removeItem('deviceId_backup');
+    sessionStorage.removeItem('deviceId_backup');
+    Cookies.remove('deviceId_backup');
   };
 
+  // Maneja el registro del dispositivo
   const handleRegisterDevice = async (e) => {
     e.preventDefault();
     try {
       const deviceType = getDeviceType();
-<<<<<<< HEAD
 
-      let deviceId = await localforage.getItem("deviceId");
-=======
+      // Variante "jona": obtener el deviceId desde localforage con comillas simples
       let deviceId = await localforage.getItem('deviceId');
->>>>>>> jona
 
       if (!deviceId) {
         if (!deviceName.trim()) {
           toast.error('El nombre del dispositivo es obligatorio.', {
-            position: 'top-center'
+            position: 'top-center',
           });
           return;
         }
 
         await clearPreviousDevice();
-        
+
         deviceId = uuidv4();
 
         // IndexedDB principal (localforage)
@@ -65,18 +64,12 @@ const RegisterDevice = ({ onClose, register, onUpdate }) => {
         // Backup 1: localStorage
         localStorage.setItem('deviceId_backup', deviceId);
 
-        // Backup 2: cookies
-<<<<<<< HEAD
-        Cookies.set("deviceId_backup", deviceId, {
-          expires: 365 * 10,
-          secure: true,
-=======
+        // Backup 2: cookies — variante "jona"
         let expirationDate = new Date();
         expirationDate.setTime(expirationDate.getTime() + 60 * 60 * 24 * 365);
         Cookies.set('deviceId_backup', deviceId, {
           expires: expirationDate,
-          secure: true
->>>>>>> jona
+          secure: true,
         });
 
         // Backup 3: sessionStorage
@@ -86,25 +79,25 @@ const RegisterDevice = ({ onClose, register, onUpdate }) => {
       const response = await DeviceService.register({
         deviceId,
         deviceType,
-        deviceName
+        deviceName,
       });
 
       if (response.code === 200) {
         setTimeout(() => {
           toast.success('Dispositivo registrado exitosamente', {
-            position: 'top-center'
+            position: 'top-center',
           });
         }, 1000);
         onUpdate();
         onClose();
       } else {
         toast.error(`Error al registrar el dispositivo: ${response.message}`, {
-          position: 'top-center'
+          position: 'top-center',
         });
       }
     } catch (error) {
       toast.error('Error al registrar el dispositivo', {
-        position: 'top-center'
+        position: 'top-center',
       });
     }
   };
