@@ -1,9 +1,7 @@
 // imports/ui/components/Layout/movil/NavMovil.jsx
 // @ts-nocheck
-// Nota didáctica:
-// - Este archivo contenía marcadores de conflicto Git y fragmentos duplicados.
-// - Se ha conservado la variante "jona" y SOLO se han eliminado los marcadores,
-//   sin modificar la lógica del componente.
+// Este fichero ya no contiene marcadores de conflicto. Se ha conservado
+// la variante "jona" (rutas y textos) y se ha eliminado cualquier duplicación.
 
 import React, { useEffect, useState } from 'react';
 import { Header } from '../../Header/Header';
@@ -17,18 +15,18 @@ export default function NavMovil() {
   const [controlMenu, setControlMenu] = useState(false);
   const { permissions } = usePermissions();
 
-  // Función: alternar la visibilidad de los submenús (tiempos / empleado)
+  // Alternar la visibilidad de los submenús (tiempos / empleado)
   const toggleMenu = (menu) => {
     if (menu === 'time') {
       setShowTimeControlMenu(!showTimeControlMenu);
-      setControlMenu(false); // Cierra el otro menú si está abierto
+      setControlMenu(false);
     } else if (menu === 'control') {
       setControlMenu(!controlMenu);
-      setShowTimeControlMenu(false); // Cierra el otro menú si está abierto
+      setShowTimeControlMenu(false);
     }
   };
 
-  // Función: cerrar menús y navegar a la ruta indicada
+  // Cerrar menús y navegar a la ruta indicada
   const navigateAndCloseMenus = (path) => {
     setShowTimeControlMenu(false);
     setControlMenu(false);
@@ -39,7 +37,6 @@ export default function NavMovil() {
     <div>
       <nav
         className="navFooter"
-        // Sombra solo cuando el menú de tiempos está abierto (feedback visual)
         style={{
           boxShadow: showTimeControlMenu ? '0px -5px 13px 0px rgba(0,0,0,0.1)' : 'none'
         }}
@@ -52,7 +49,7 @@ export default function NavMovil() {
             </li>
           </a>
 
-          <a onClick={() => toggleMenu('time')}>
+        <a onClick={() => toggleMenu('time')}>
             <li className="informes">
               <i className="fa-solid fa-stopwatch"></i>
               <p>Tiempos</p>
@@ -105,7 +102,7 @@ export default function NavMovil() {
               </li>
             </a>
 
-            {/* Variante "jona": botón de justificación activo hacia /justification */}
+            {/* variante jona: botón de justificación */}
             {permissions.applyAssignedSchedule && (
               <a
                 alt="Justificar"
