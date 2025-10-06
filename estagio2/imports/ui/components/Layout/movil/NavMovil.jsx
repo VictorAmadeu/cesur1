@@ -1,19 +1,15 @@
+// imports/ui/components/Layout/movil/NavMovil.jsx
 // @ts-nocheck
-<<<<<<< HEAD:imports/ui/components/Layout/movil.jsx
-import React, { useEffect, useState } from "react";
-import { Header } from "../Header/Header";
-import { useNavigate } from "react-router-dom";
-import AuthService from "/imports/service/authService";
-import { usePermissions } from "../../../context/permissionsContext";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-=======
+// Nota didáctica:
+// - Este archivo contenía marcadores de conflicto Git y fragmentos duplicados.
+// - Se ha conservado la variante "jona" y SOLO se han eliminado los marcadores,
+//   sin modificar la lógica del componente.
+
 import React, { useEffect, useState } from 'react';
 import { Header } from '../../Header/Header';
 import { useNavigate } from 'react-router-dom';
 import AuthService from '/imports/service/authService';
 import { usePermissions } from '../../../../context/permissionsContext';
->>>>>>> jona:imports/ui/components/Layout/movil/NavMovil.jsx
 
 export default function NavMovil() {
   const navigate = useNavigate();
@@ -21,7 +17,7 @@ export default function NavMovil() {
   const [controlMenu, setControlMenu] = useState(false);
   const { permissions } = usePermissions();
 
-  // Función para alternar submenús
+  // Función: alternar la visibilidad de los submenús (tiempos / empleado)
   const toggleMenu = (menu) => {
     if (menu === 'time') {
       setShowTimeControlMenu(!showTimeControlMenu);
@@ -32,7 +28,7 @@ export default function NavMovil() {
     }
   };
 
-  // Función para cerrar ambos menús antes de navegar
+  // Función: cerrar menús y navegar a la ruta indicada
   const navigateAndCloseMenus = (path) => {
     setShowTimeControlMenu(false);
     setControlMenu(false);
@@ -43,6 +39,7 @@ export default function NavMovil() {
     <div>
       <nav
         className="navFooter"
+        // Sombra solo cuando el menú de tiempos está abierto (feedback visual)
         style={{
           boxShadow: showTimeControlMenu ? '0px -5px 13px 0px rgba(0,0,0,0.1)' : 'none'
         }}
@@ -54,18 +51,21 @@ export default function NavMovil() {
               <p>Inicio</p>
             </li>
           </a>
+
           <a onClick={() => toggleMenu('time')}>
             <li className="informes">
               <i className="fa-solid fa-stopwatch"></i>
               <p>Tiempos</p>
             </li>
           </a>
+
           <a onClick={() => toggleMenu('control')}>
             <li className="descargas">
               <i className="fa-solid fa-user"></i>
               <p>Empleado</p>
             </li>
           </a>
+
           <a onClick={() => navigateAndCloseMenus('/perfil')}>
             <li className="notificaciones">
               <i className="fa-solid fa-address-card"></i>
@@ -74,6 +74,7 @@ export default function NavMovil() {
           </a>
         </ul>
       </nav>
+
       {showTimeControlMenu && (
         <div
           style={{
@@ -103,19 +104,8 @@ export default function NavMovil() {
                 <p style={{ color: '#fff', fontSize: '14px' }}>Fichar</p>
               </li>
             </a>
-<<<<<<< HEAD:imports/ui/components/Layout/movil.jsx
-            {/* {permissions.applyAssignedSchedule && (
-              <a
-                alt="Justificar"
-                onClick={() => navigateAndCloseMenus("/justificar")}
-                style={{ cursor: "pointer", color: "#fff" }}
-              >
-                <li className="Fichar">
-                  <p style={{ color: "#fff", fontSize: "14px" }}>Justificar</p>
-                </li>
-              </a>
-            )} */}
-=======
+
+            {/* Variante "jona": botón de justificación activo hacia /justification */}
             {permissions.applyAssignedSchedule && (
               <a
                 alt="Justificar"
@@ -127,7 +117,7 @@ export default function NavMovil() {
                 </li>
               </a>
             )}
->>>>>>> jona:imports/ui/components/Layout/movil/NavMovil.jsx
+
             <a
               alt="Mis tiempos"
               onClick={() => navigateAndCloseMenus('/ver-tiempo')}
@@ -140,6 +130,7 @@ export default function NavMovil() {
           </ul>
         </div>
       )}
+
       {controlMenu && (
         <div className="fixed bottom-[45px] w-full bg-[#3a94cc] z-[1000]">
           <ul className="flex justify-center gap-5 p-2">
@@ -153,6 +144,7 @@ export default function NavMovil() {
                 </li>
               </a>
             )}
+
             <a
               onClick={() => navigateAndCloseMenus('/ausencia')}
               className="flex items-center justify-center text-white text-center w-full no-underline"
@@ -161,6 +153,7 @@ export default function NavMovil() {
                 <p className="text-white text-sm">Ausencias</p>
               </li>
             </a>
+
             {permissions.allowWorkSchedule && (
               <a
                 onClick={() => navigateAndCloseMenus('/horario')}
@@ -174,12 +167,6 @@ export default function NavMovil() {
           </ul>
         </div>
       )}
-<<<<<<< HEAD:imports/ui/components/Layout/movil.jsx
-
-      <ToastContainer />
-      {children}
-=======
->>>>>>> jona:imports/ui/components/Layout/movil/NavMovil.jsx
     </div>
   );
 }
