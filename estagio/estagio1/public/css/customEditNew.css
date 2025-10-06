@@ -1,0 +1,8 @@
+.ea-edit-form,
+.ea-new-form {
+    max-height: 80vh;
+    overflow-y: auto;
+    padding-right: 1rem;
+    padding-bottom: 1rem;
+    width: 100%;
+}

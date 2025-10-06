@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}License{% endblock %}
+
+{% block body %}
+    <h1>License</h1>
+
+    <table class="table">
+        <tbody>
+            <tr>
+                <th>Id</th>
+                <td>{{ license.id }}</td>
+            </tr>
+            <tr>
+                <th>Comments</th>
+                <td>{{ license.comments }}</td>
+            </tr>
+            <tr>
+                <th>DateStart</th>
+                <td>{{ license.dateStart ? license.dateStart|date('Y-m-d H:i:s') : '' }}</td>
+            </tr>
+            <tr>
+                <th>DateEnd</th>
+                <td>{{ license.dateEnd ? license.dateEnd|date('Y-m-d H:i:s') : '' }}</td>
+            </tr>
+            <tr>
+                <th>IsApproved</th>
+                <td>{{ license.isApproved ? 'Yes' : 'No' }}</td>
+            </tr>
+            <tr>
+                <th>IsActive</th>
+                <td>{{ license.isActive ? 'Yes' : 'No' }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <a href="{{ path('app_api_license_index') }}">back to list</a>
+
+    <a href="{{ path('app_api_license_edit', {'id': license.id}) }}">edit</a>
+
+    {{ include('api_license/_delete_form.html.twig') }}
+{% endblock %}

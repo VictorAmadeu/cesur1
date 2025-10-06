@@ -1,0 +1,43 @@
+controllers:
+  resource:
+    path: ../src/Controller/
+    namespace: App\Controller
+  type: attribute
+app.swagger_ui:
+  path: /api/doc
+  methods: GET
+  defaults: { _controller: nelmio_api_doc.controller.swagger_ui }
+
+switch:
+  path: /switch
+  controller: App\Controller\LoginController::switch
+
+api_login_check:
+  path: /api/login_check
+
+error:
+  path: /error
+  controller: App\Controller\ErrorController::show
+
+select_company:
+  path: /select-company
+  controller: App\Controller\CompaniesController::selectCompany
+  methods: [POST]
+
+app_document:
+  path: /api/document
+  controller: App\Controller\DocumentController::findDocuments
+  methods: [POST]
+
+mark_document_read:
+  path: /api/document/mark-read
+  controller: App\Controller\DocumentController::markDocumentRead
+  methods: [POST]
+
+download_error_file:
+  path: /download/error/{filename}
+  controller: App\Controller\DocumentController::downloadErrorFile
+
+delete_file:
+  path: /delete/{filename}
+  controller: App\Controller\DocumentController::deleteFile

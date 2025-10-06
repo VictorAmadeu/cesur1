@@ -1,0 +1,66 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+    # Info web #
+    app.web.domain: intranek.com
+    app.web.url: https://intranek.com
+    app.web.name: intranEK
+    app.web.eslogan: Gestión del empleado
+    app.web.email_from: no-reply@intranek.com
+    app.web.email_contact: info@intranek.com
+    app.web.email_admin: info@intranek.com
+    uploads_directory: '%kernel.project_dir%/public/uploads'
+    uploads_directory_public: '%kernel.project_dir%/public'
+
+    #app.path.upload_invPDF: '%kernel.project_dir%/var/storage/invoicesPDF/'
+    #app.path.upload_invFacte: '%kernel.project_dir%/var/storage/invoicesFacte/'
+    #app.path.upload_cert: '%kernel.project_dir%/var/storage/cert/'
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+    App\Service\DocumentValidator:
+        autowire: true
+        autoconfigure: true
+            
+    App\Service\MailerService:
+        arguments: ['@Symfony\Component\Mailer\MailerInterface']
+
+    App\Service\GeocodingService:
+        arguments: ['@http_client']
+
+    acme_api.event.jwt_created_listener:
+        class: App\EventListener\JWTCreatedListener
+        arguments: [ '@request_stack' ]
+        tags:
+            - { name: kernel.event_listener, event: lexik_jwt_authentication.on_jwt_created, method: onJWTCreated }
+            
+    acme_api.event.authentication_failure_listener:
+        class: App\EventListener\AuthenticationFailureListener
+        tags:
+            - { name: kernel.event_listener, event: lexik_jwt_authentication.on_authentication_failure, method: onAuthenticationFailureResponse }
+            
+    App\Service\DocumentErrorLogService:
+        arguments:
+            $params: '@parameter_bag'
+
+    App\Security\AuthenticationFailureHandler:
+        autowire: true
+        autoconfigure: true
+        
+    App\EventListener\AuthenticationSuccessListener:
+        tags:
+            - { name: kernel.event_listener, event: lexik_jwt_authentication.on_authentication_success, method: onAuthenticationSuccess }

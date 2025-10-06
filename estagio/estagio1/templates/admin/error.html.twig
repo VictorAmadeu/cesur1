@@ -1,0 +1,46 @@
+{# templates/error.html.twig #}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Error {{ status_code }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            text-align: center;
+        }
+        h1 {
+            font-size: 3em;
+            color: #343a40;
+        }
+        p {
+            font-size: 1.2em;
+            color: #6c757d;
+        }
+        a {
+            color: #1e50cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ status_code }} - {{ status_code == 404 ? 'Página no encontrada' : 'Error' }}</h1>
+        <p>{{ message is not empty ? message : 'Ha ocurrido un error inesperado. Por favor, intenta más tarde.' }}</p>
+        
+        <p><a href="/">Volver a la página principal</a></p>
+    </div>
+</body>
+</html>

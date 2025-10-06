@@ -1,0 +1,37 @@
+{# templates/bundles/EasyAdmin/dashboard.html.twig #}
+
+{% extends '@!EasyAdmin/layout.html.twig' %}
+{% block content %}
+  <div class="row mt-3 w-100 py-1" id="formsFilter">
+    {% if form|default %}
+    {{ form_start(form, {'attr': {'id': 'company_select_global_form'}}) }}
+      {% if app.request.get('crudAction') != 'index' and app.request.get('_controller') is iterable %} 
+        {{ form_row(form.id, { 'attr': {'disabled': 'disabled', 'class':'form-select'} }) }}
+      {% else %}
+        {{ form_row(form.id, { 'attr': {'class':'form-select'} }) }}
+      {% endif %}
+    {{ form_end(form) }}
+    {% endif %}
+    {% if formUser|default %}
+      {{ form(formUser, {'attr': {'id': 'user_select_global_form'}}) }}
+      {{ form_end(formUser) }}
+    {% endif %}
+  {{ parent() }}
+  <div class="modal fade alertModal" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModal" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body"><p id="alertContent" class="p-4"></p></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="$('#alertModal').modal('hide')">Aceptar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade alertModal" id="loadingModal" tabindex="-1" role="dialog" aria-labelledby="alertModal" aria-hidden="false">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body "><img height="40" src="{{ asset('images/loading.gif') }}"><br>Cargando...</div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -1,0 +1,19 @@
+twig:
+    default_path: '%kernel.project_dir%/templates'
+    globals:
+        #path_avatar_users: '%app.path.avatar_users%'    
+        #uri_avatar_users: '%app.uri.avatar_users%'
+        #path_avatar_default: '%app.path.avatar_default%'
+        #uri_documents: '%app.uri.documents%'
+        #path_documents: '%app.path.upload_documents%'
+        sitename: '%app.web.name%'
+        eslogan: '%app.web.eslogan%'
+        domain: '%app.web.domain%'
+        url: '%app.web.url%'
+        from: '%app.web.email_from%'
+        admin: '%app.web.email_admin%'
+        contact: '%app.web.email_contact%'
+
+when@test:
+    twig:
+        strict_variables: true

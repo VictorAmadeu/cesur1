@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+{% block title %}Intranek - Recuperar contraseña{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/security/login.css') }}" />
+{% endblock %}
+{% block body %}
+    <div class="container">
+        <div class="logo-container">
+            <p><img src="{{ asset('/images/logo.png') }}" width="300"></p>
+            <h1>Recuperar contraseña</h1>
+        </div>
+    {% for flash_error in app.flashes('reset_password_error') %}
+        <div class="alert alert-danger" role="alert">{{ flash_error }}</div>
+    {% endfor %}
+    {{ form_start(requestForm) }}
+        {{ form_row(requestForm.email) }}
+        <button type="submit">Enviar</button>
+    {{ form_end(requestForm) }}
+    <a class="link" href={{ referer }} title="Volver">Volver</a>
+    </div>
+{% endblock %}

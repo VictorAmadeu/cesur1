@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}New License{% endblock %}
+
+{% block body %}
+    <h1>Create new License</h1>
+
+    {{ include('api_license/_form.html.twig') }}
+
+    <a href="{{ path('app_api_license_index') }}">back to list</a>
+{% endblock %}

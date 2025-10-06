@@ -1,0 +1,9 @@
+/*Aspectos generales*/
+* {margin:0; padding:0; list-style-type:none; font-family:"Helvetica Neue", Helvetica, Arial, sans-serif; font-size:16px;}
+.main-content{
+    overflow: visible !important;
+}
+a { color:#333; font-weight: bold; }
+a:hover {color: dimgray;}
+.alert, .alert ul li { font-size: 13px; }
+.alert ul { margin: 0px; }

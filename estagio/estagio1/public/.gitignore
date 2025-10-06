@@ -1,0 +1,8 @@
+./.env
+.env
+
+./public/uploads
+/uploads
+./public/uploads/*
+/uploads/*
+./uploads/*

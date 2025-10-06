@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}License index{% endblock %}
+
+{% block body %}
+    <h1>License index</h1>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Comments</th>
+                <th>DateStart</th>
+                <th>DateEnd</th>
+                <th>IsApproved</th>
+                <th>IsActive</th>
+                <th>actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for license in licenses %}
+            <tr>
+                <td>{{ license.id }}</td>
+                <td>{{ license.comments }}</td>
+                <td>{{ license.dateStart ? license.dateStart|date('Y-m-d H:i:s') : '' }}</td>
+                <td>{{ license.dateEnd ? license.dateEnd|date('Y-m-d H:i:s') : '' }}</td>
+                <td>{{ license.isApproved ? 'Yes' : 'No' }}</td>
+                <td>{{ license.isActive ? 'Yes' : 'No' }}</td>
+                <td>
+                    <a href="{{ path('app_api_license_show', {'id': license.id}) }}">show</a>
+                    <a href="{{ path('app_api_license_edit', {'id': license.id}) }}">edit</a>
+                </td>
+            </tr>
+        {% else %}
+            <tr>
+                <td colspan="7">no records found</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{{ path('app_api_license_new') }}">Create new</a>
+{% endblock %}

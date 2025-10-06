@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ sitename }} - Change Password{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/security/login.css') }}" />
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        {% for flash in app.flashes('error') %}
+            <div class="alert alert-danger mt-2" role="alert">
+                {{ flash }}
+            </div>
+        {% endfor %}
+        <div class="logo-containerP">
+            <h4 class="mt-1">Por seguridad, debe cambiar la contraseña</h4>
+        </div>
+
+
+
+        <div class="formR mt-3">
+            {{ form_start(form) }}
+            <div class="form-group">
+                {{ form_label(form.password, 'Nueva contraseña', {'label_attr': {'class': 'labelR'}}) }}
+                {{ form_widget(form.password, {'attr': {'class': 'inputR'}}) }}
+                {{ form_errors(form.password) }}
+            </div>
+
+            <div class="form-group">
+                {{ form_label(form.confirm_password, 'Confirmar contraseña', {'label_attr': {'class': 'labelR'}}) }}
+                {{ form_widget(form.confirm_password, {'attr': {'class': 'inputR'}}) }}
+                {{ form_errors(form.confirm_password) }}
+            </div>
+            
+            <div class="form-submit">
+                {{ form_widget(form.save, {'attr': {'class': 'buttonR'}}) }}
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+{% endblock %}

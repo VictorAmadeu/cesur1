@@ -1,0 +1,14 @@
+{% extends '@EasyAdmin/crud/index.html.twig' %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/filters-handler.js') }}"></script>
+{% endblock %}
+{% block content %}
+    <div class="d-flex-col" style="display:flex-col;margin-top:20px;">
+    {# Renderizamos el CRUD por defecto de EasyAdmin #}
+    <div class="table-responsive" style="max-height: 80vh; overflow-y: auto;">
+        {{ parent() }}
+    </div>
+    </div>
+{% endblock %}

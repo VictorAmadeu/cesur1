@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+{% block title %}Intranek - Envío email recuperar contraseña{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/security/login.css') }}" />
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="logo-container">
+        <p><img src="{{ asset('/images/logo.png') }}" width="300"></p>
+        <h1>Email de recuperación enviado</h1>
+    </div>    
+    <p class="info">
+        Te hemos enviado un email que contiene un enlace que podrás utilizar para recuperar tu contraseña. 
+    </p>
+    <p class="info">Si no has recibido el email, <a href="{{ path('app_forgot_password_request') }}">intenta de nuevo</a> o revisa tu carpeta de SPAM .</p>
+    <a class="link" href="{{ path('app_login') }}" title="Volver">Volver</a>
+</div>
+{% endblock %}

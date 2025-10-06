@@ -1,0 +1,19 @@
+{% extends '@EasyAdmin/crud/index.html.twig' %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/filters-handler.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex flex-column" style="margin-top:20px; overflow-y: auto;">
+        <!-- Título y descripción -->
+        <div class="mb-4">
+            <h2 class="fw-bold">Horario del día</h2>
+            <p class="text-muted mb-0">Configura los días de la semana para cada horario, definiendo los rangos de entrada y salida, así como la posibilidad de tener varios intervalos en un mismo día.</p>
+        </div>
+        <div class="table-responsive" style="max-height: 80vh; overflow-y: auto;">
+            {{ parent() }}
+        </div>
+    </div>
+{% endblock %} 

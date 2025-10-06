@@ -1,0 +1,55 @@
+{% extends 'base.html.twig' %}
+{% block title %}{{ sitename }}- Solicitud de acceso{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/security/registration.css') }}" />
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="logo-container">
+        <p><img src="{{ asset('/images/logo.png') }}" width="300"></p>
+        <h1>Solicitud de acceso</h1>
+        <p class="aviso">Si tu NIF o CIF ya está dado alta, tu usuario se asociará al cliente correspondiente.</p>
+    </div>
+    {% for flash_error in app.flashes('verify_email_error') %}
+        <div class="alert alert-danger" role="alert">{{ flash_error }}</div>
+    {% endfor %}
+    {% if form_errors(registrationForm.email) %}
+        <div class="alert alert-danger" role="alert">{{ form_errors(registrationForm.email) }}</div>
+    {% endif %}
+    {{ form_start(registrationForm) }}
+        
+        <div class="form-group row">
+            <div class="col-sm-6">
+                {{ form_label(registrationForm.email) }}
+                {{ form_widget(registrationForm.email) }}
+            </div>
+            <div class="col-sm-3">
+                {{ form_label(registrationForm.phone) }}
+                {{ form_widget(registrationForm.phone) }}
+            </div>
+            <div class="col-sm-3">
+                {{ form_label(registrationForm.NIF) }}
+                {{ form_widget(registrationForm.NIF) }}
+            </div>
+        </div>        
+        <div class="form-row mt-4">
+            <div class="col-sm-4">
+                {{ form_label(registrationForm.name) }}
+                {{ form_widget(registrationForm.name) }}
+            </div>
+            <div class="col-sm-4">
+                {{ form_label(registrationForm.lastname1) }}
+                {{ form_widget(registrationForm.lastname1) }}
+            </div>
+            <div class="col-sm-4">
+                {{ form_label(registrationForm.lastname2) }}
+                {{ form_widget(registrationForm.lastname2) }}
+            </div>
+        </div>
+        <button type="submit" class="btn">Enviar</button>
+    {{ form_end(registrationForm) }}
+    <a class="link" href="{{ path('app_login') }}">Volver</a>
+</div>    
+{% endblock %}

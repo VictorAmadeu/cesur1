@@ -1,0 +1,98 @@
+html,
+body {
+  overflow-y: hidden;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+}
+
+a {
+  text-decoration: none !important;
+}
+
+.main-content {
+  overflow: visible !important;
+}
+
+.wrapper {
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.form-group.field-collection .accordion-button {
+  display: none;
+}
+
+#formsFilter {
+  width: 100%;
+  display: flex;
+}
+
+#company_select_global_form,
+#user_select_global_form {
+  width: 30%;
+}
+
+.modal-fullscreen,
+.modal-body {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overflow-y: hidden !important;
+}
+
+#loadingModal {
+  text-align: center;
+  color: #fff;
+  font-weight: bold;
+}
+
+#loadingModal .modal-dialog {
+  max-width: 150px !important;
+}
+
+#loadingModal .modal-content {
+  background: #00000000;
+  border: none;
+}
+
+#loadingModal .modal-body {
+  background: none;
+}
+
+.logo-custom {
+  height: 100px;
+  display: flex !important;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-custom div:nth-child(1) {
+  height: 73%;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 1150px) {
+  #formsFilter {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+
+  #company_select_global_form,
+  #user_select_global_form {
+    width: 100%;
+  }
+
+  #company_select_global_form {
+    margin-bottom: 15px;
+  }
+}

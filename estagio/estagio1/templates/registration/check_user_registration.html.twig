@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ sitename }} - Restablecer contraseña</title>
+<style type="text/css">
+* {font-size:17px;}
+#preheadernoshow {display:none !important; font-size:1px; color:#fff; line-height:1px; max-height:0px; max-width:0px; opacity:0; overflow:hidden; mso-hide:all !important;}	
+/* Outlook link fix */
+#outlook a {padding: 0;}
+/* Hotmail background & line height fixes */
+.ExternalClass {width: 100% !important;}
+.ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div {line-height: 100%;}
+/* Image borders & formatting */
+img {outline: none;text-decoration: none;-ms-interpolation-mode: bicubic;}
+a img {border: none;}
+/* Re-style iPhone automatic links (eg. phone numbers) */
+.applelinks a {color: #ffffff;text-decoration: none;}	
+@media screen and (max-device-width: 640px), screen and (max-width: 640px) {
+/*wrap to 100% width*/
+.emailwrapto100pc {width: 100% !important;height: auto !important; clear:both !important; margin:0 auto !important;}
+/*split columns*/
+.emailcolsplit1 {float: left!important;width: 100% !important;}
+/*change font size*/
+.emailmobpadding {padding-left: 0px !important;padding-right: 0px !important;}
+div[class="mobile-only"] {display: block !important;max-height: none !important;}
+.emailmobshow {display: inline-block !important;margin: auto !important;max-height: inherit !important;overflow : visible !important;mso-hide: all !important; /* hide elements in Outlook 2007-2013 */height: auto !important;}
+}
+</style>
+<!--various mobile fix meta tags-->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta content="yes" name="apple-touch-fullscreen">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="format-detection" content="telephone=no">
+</head>
+
+<body style="min-width:100%;padding:0; margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:100%; background-color:#ddd;" bgcolor="#ddd">
+<div id="preheadernoshow" style="display:none !important;font-size:1px !important;color:#fff !important;line-height:1px;font-family:Calibri, Verdana, sans-serif;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all !important;">Información general de parte del equipo de {{ sitename }}{% if eslogan is not null %} · {{ eslogan }}{% endif %}</div>
+
+<table border="0" cellspacing="0" cellpadding="0" width="100%" bgcolor="#ddd">
+    <tr>
+        <td align="center" valign="top" style="font-family:Calibri, Verdana, sans-serif;font-size:14px; color:#666666;padding-top:0px;padding-right:0px;padding-bottom:0px;padding-left:0px;" class="emailmobpadding">
+            <table border="0" cellspacing="0" cellpadding="0" width="600" class="emailwrapto100pc">
+                <tr>
+                    <td style="background-color:#ffffff;"><a href="{{ url }}" target="_blank" style="color:#ffffff;font-size:30px;font-family:Calibri, Verdana, sans-serif;text-align:center;text-decoration:none;font-weight:bold;"> <img alt="{{ sitename }}{% if eslogan is not null %} · {{ eslogan }}{% endif %}" src="{{ absolute_url(asset('images/mail/cab-mail.jpg')) }}" style="width:100%; height:auto; max-width:600px; padding-bottom: 0; display: inline !important; vertical-align: bottom;" class="Image" align="middle"></a></td>
+                </tr>
+            </table>       
+   
+            <table align="center" class="emailwrapto100pc" cellspacing="0" cellpadding="0" width="600" border="0" bgcolor="#fff">
+                <tr>
+                    <td width="15"></td>
+                    <td align="center" valign="top" style="vertical-align:top" class="emailcolsplit1">
+			<table>
+                            <tr>
+				<td>
+                                    <h1 style="font-size:20px; font-family:Calibri, Verdana, sans-serif; line-height:130%; color: #000;">Nueva solicitud de acceso para intranek</h1>
+                                    <p style="font-size:17px; font-family:Calibri, Verdana, sans-serif; line-height:130%; color: #000;">¡Hola!<br><br>
+                                    El usuario {{user.name}} {{user.lastname1}} {{user.lastname2}} ha solicitado acceso a Intranek, por favor valida su acceso entrando en el panel de administración o haciendo pinchando 
+                                    <a href="{{ ea_url()
+                                        .setController('App\\Controller\\Admin\\UserCrudController')
+                                        .setAction('edit')
+                                        .setEntityId(user.id)
+                                    }}">aquí</a>.<br>
+                                    Si tienes algún problema con el enlace, háznoslo saber escribiéndonos un e-mail a <a href="mailto:{{contact}}" style="color:#f49924;">{{contact}}</a>.</p>
+                                </td>	
+                            </tr>
+                            <tr height="30"></tr>
+                        </table>
+                    </td>
+                    <td width="15"></td>
+                </tr>
+            </table>  
+            <table align="center" class="emailwrapto100pc" cellspacing="0" cellpadding="0" width="600" border="0">
+                <tr>
+                    <td width="10"></td>
+                    <td align="left" valign="top" style="vertical-align:top" class="emailcolsplit1"><br>
+			<a href="{{ url }}" target="_blank"><img src="{{ absolute_url(asset('images/logo.png')) }}" alt="Logo {{ sitename }}"></a>
+		  	<p style="font-size:13px; font-family:Calibri, Verdana, sans-serif; line-height:150%; color: #777; text-align: left;">
+                            <strong style="color:#777; font-size:13px;">El medioambiente es cosa de todos.<br>Antes de imprimir este mensaje, asegúrese de que es necesario.</strong><br><br>
+                            <span style="color:#777 !important; font-size:13px !important; font-weight: normal !important;">Esta comunicación contiene información confidencial y/o privilegiada. Es para uso exclusivo del destinatario. Si usted no es el destinatario, tenga en cuenta que cualquier distribución, copia o uso de esta comunicación o la información que contiene está estrictamente prohibida. Si usted ha recibido este correo por error, por favor, notifíquelo en el correo electrónico arriba mencionado y borre este mensaje.<br></span>
+                            <div style="text-align: center;">
+				<span style="font-size:12px; color:#777 !important; font-family:Calibri, Verdana, sans-serif; line-height:150%; text-align:center !important; font-weight: normal !important">Copyright © {{ "now"|date('Y') }} · <a href="{{ url }}" target="_blank" style="color:#777;"><strong style="color:#777 !important; font-size:12px !important; font-weight: normal !important;">{{ sitename }}</strong></a> · Todos los derechos reservados.</span>
+                            </div>
+			</p>
+                    </td>
+                    <td width="10"></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>               
+</body>
+</html>

@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/home/home.css') }}" />
+{% endblock %}
+{% block body %}
+    <div class="container">
+        <div class="logo-container">
+			<p><img src="{{ asset('/images/logo.png') }}" width="300"></p>
+            <h1>Selecciona tu perfil</h1>
+		</div>
+		<div class="button-group">
+			<a href="{{ path('home') }}" title="Cliente">Cliente</a>
+			<a href="{{ path('admin') }}" title="Admin">Admin</a>
+		</div>
+    </div>
+{% endblock %}

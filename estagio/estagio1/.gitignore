@@ -1,0 +1,53 @@
+###> symfony/framework-bundle ###
+/.env
+/.env.local
+/.env.local.php
+/.env.test
+/.env.*.local
+
+# Claves/secretos de Symfony (cubre prod y cualquier entorno por si acaso)
+# Tu versión original solo ignoraba prod.decrypt.private.php
+/config/secrets/*/*decrypt*.php
+
+/public/bundles/
+/public/uploads/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> phpunit/phpunit ###
+/phpunit.xml
+.phpunit.result.cache
+###< phpunit/phpunit ###
+
+###> symfony/phpunit-bridge ###
+.phpunit.result.cache
+/phpunit.xml
+###< symfony/phpunit-bridge ###
+
+# ⚠️ Para APLICACIONES Symfony, se recomienda versionar composer.lock
+# (garantiza mismas versiones en todos los entornos).
+# Si este repo fuera una LIBRERÍA, entonces sí se ignora.
+/* NO IGNORAR composer.lock */
+# composer.lock
+
+###> lexik/jwt-authentication-bundle ###
+/config/jwt/*.pem
+###< lexik/jwt-authentication-bundle ###
+
+# --- Añadidos recomendados ---
+
+# Sistema/Editor
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
+/.vs/
+
+# Front-end (ajusta a tu build system)
+#/dist/            # si usas Vite u otro bundler que genere dist
+/public/build/     # si usas Symfony Encore/Webpack
+/node_modules/
+
+# Herramientas comunes
+/.php-cs-fixer.cache

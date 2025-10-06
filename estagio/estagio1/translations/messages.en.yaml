@@ -1,0 +1,11 @@
+#Home
+
+#Login Form
+
+#Registration Form
+EmailLoginForm: Email
+PhoneLoginForm: Teléfono
+NIFLoginForm: NIF/CIF
+NameLoginForm: Nombre
+FirstNameLoginForm: Primer apellido
+LastNameLoginForm: Segundo apellido

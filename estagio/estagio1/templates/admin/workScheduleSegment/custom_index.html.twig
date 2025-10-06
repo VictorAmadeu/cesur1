@@ -1,0 +1,107 @@
+{% extends '@EasyAdmin/crud/index.html.twig' %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('js/filters-handler.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+    <div class="d-flex flex-column" style="margin-top:20px; overflow-y: auto;">
+        <!-- Título y descripción -->
+        <div class="mb-4">
+            <h2 class="fw-bold">Segmentos del día</h2>
+            <p class="text-muted mb-0">Aquí puedes definir los intervalos recurrentes dentro de cada día de un horario, como por ejemplo el almuerzo o descansos. Estos segmentos se aplican automáticamente a todos los días configurados en el horario seleccionado.</p>
+        </div>
+        <div class="d-flex justify-content-between align-items-end flex-wrap">
+            <!-- Filtros a la izquierda -->
+            <form method="POST" id="filter-form" class="d-flex flex-wrap gap-4 align-items-end">
+                <!-- Empresa -->
+                <div class="form-group">
+                    <label for="company-select" class="form-label">Empresa</label>
+                        <select name="company_id" id="company-select" onchange="this.form.submit()" class="form-select" style="width: 250px;">
+                            {% for company in companies %}
+                                <option value="{{ company.id }}" {% if selectedCompany and selectedCompany.id == company.id %} selected {% endif %}>
+                                    {{ company.comercialName }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                </div>
+
+                {% if selectedWorkSchedule is not null %}
+                    <div class="form-group">
+                    <label for="workSchedule-select" class="form-label">Horario</label>
+                    <select id="workSchedule-select" class="form-select me-3" style="width: 230px;">
+                    <option value="all" {% if selectedWorkSchedule == 'all' %} selected {% endif %}>Todos</option>
+                        {% for workS in workSchedule %}
+                            <option value="{{ workS.id }}"
+                                {% if selectedWorkSchedule != 'all' and selectedWorkSchedule.id == workS.id %} selected {% endif %}>
+                                {{ workS.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+
+                
+            </form>
+        </div>
+        <div class="table-responsive" style="max-height: 80vh; overflow-y: auto;">
+            {{ parent() }}
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const exportButton = document.getElementById("export-button");
+
+            exportButton.addEventListener("click", async function () {
+                try {
+                    // Obtener los parámetros de la URL
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const com = urlParams.get('com');
+                    const off = urlParams.get('off');
+                    const us = urlParams.get('us');
+                    const start = urlParams.get('start'); // Mes actual si no se pasa
+                    const end = urlParams.get('end'); // Año actual si no se pasa
+
+                    // Crear la URL con los parámetros adicionales
+                    const exportUrl = `{{ path('export_report') }}?com=${com}&off=${off}&us=${us}&start=${start}&end=${end}`;
+
+                    const response = await fetch(exportUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && Array.isArray(data.files)) {
+                        for (const file of data.files) {
+                            // Crear y hacer clic en el enlace para descargar
+                            const link = document.createElement("a");
+                            link.href = file.file_path;
+                            link.download = file.file_name;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+
+                            // Llamar a la API para eliminar el archivo después de descargarlo
+                            await fetch("{{ path('delete_exported_file') }}", {
+                                method: "POST",
+                                body: JSON.stringify({ filePath: file.file_path }),
+                                headers: { "Content-Type": "application/json" }
+                            });
+                        }
+                    } else {
+                        alert("Error al generar el archivo: " + (data.message || "Desconocido"));
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("Hubo un problema con la solicitud de exportación.");
+                }
+            });
+        });
+        </script>
+
+
+
+{% endblock %}

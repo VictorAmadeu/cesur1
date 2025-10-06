@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Intranek - Modificar contraseña{% endblock %}
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('/css/security/login.css') }}" />
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="logo-container">
+        <p><img src="{{ asset('/images/logo.png') }}" width="300"></p>
+        <h1>Modificar contraseña</h1>
+    </div>
+    {{ form_start(resetForm) }}
+        {{ form_row(resetForm.plainPassword) }}
+        <button type="submit">Enviar</button>
+    {{ form_end(resetForm) }}
+</div>    
+{% endblock %}
