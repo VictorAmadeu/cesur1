@@ -1,7 +1,8 @@
+// imports/ui/components/Horario/index.jsx
 import React, { useEffect } from 'react';
 import { useMediaQuery } from 'react-responsive';
-import Desktop from './desktop/Desktop';
-import Movil from './movil/Movil';
+import Desktop from './Desktop/Desktop.jsx';
+import Movil from './movil/Movil.jsx';
 import { usePermissions } from '../../../context/permissionsContext';
 import { UnderConstruction } from '../UnderConstruction';
 import { DatePickerSelect } from '../DatePickerSelect';
@@ -17,7 +18,7 @@ const Horario = () => {
           <header className="desplegableFecha mb-4">
             <DatePickerSelect type="week" allowFutureDates={true} />
           </header>
-          <Movil />
+          {isMobile ? <Movil /> : <Desktop />}
         </>
       ) : (
         <UnderConstruction section="Horario" />

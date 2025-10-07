@@ -1,17 +1,22 @@
-import React, { useEffect, useState } from "react";
+// C:\Proyectos\intranek\imports\ui\components\Layout\index.jsx
+import React from 'react';
 import { useMediaQuery } from 'react-responsive';
-import DesktopLayout from "./desktop/Desktop";
-import MovilLayout from "./movil/Movil";
-import { Outlet } from "react-router-dom";
+import DesktopLayout from './desktop/Desktop.jsx';
+import MovilLayout from './movil/Movil.jsx';
+import { Outlet } from 'react-router-dom';
 
 export default function ResponsiveLayout() {
   const isMobile = useMediaQuery({ query: '(max-width: 1024px)' });
 
-  return isMobile ? (
-    <MovilLayout>
-      <Outlet />
-    </MovilLayout>
-  ) : (
+  if (isMobile) {
+    return (
+      <MovilLayout>
+        <Outlet />
+      </MovilLayout>
+    );
+  }
+
+  return (
     <DesktopLayout>
       <Outlet />
     </DesktopLayout>

@@ -1,5 +1,5 @@
 import React from "react";
-import dayjs from "../../dayjsConfig";
+import dayjs from '/imports/utils/dayjsConfig';
 
 const MultiDaySegmentsBar = ({ segment, startDate, index }) => {
     const segmentStart = dayjs(segment.dateStart);

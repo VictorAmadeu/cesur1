@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { TbCalendarUp } from "react-icons/tb";
 import { useDate } from "../../../../provider/date";
-import dayjs from "../../dayjsConfig";
+import dayjs from '/imports/utils/dayjsConfig';
 import MultiDaySegmentsBar from "./MultiDaySegmentsBar";
 
 const ScheduleGridDesktop = ({

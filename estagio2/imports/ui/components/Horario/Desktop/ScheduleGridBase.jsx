@@ -1,5 +1,5 @@
 import React from "react";
-import dayjs from "../../dayjsConfig";
+import dayjs from '/imports/utils/dayjsConfig';
 import DaySegmentsRenderer from "./DaySegmentsRenderer";
 
 const ScheduleGridBase = ({ startDate, endDate, scheduleByDate, extraSegments }) => {

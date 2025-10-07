@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import dayjs from "../dayjsConfig";
+import dayjs from '/imports/utils/dayjsConfig';
 import { useDate } from "/imports/provider/date";
 
 const MonthGrid = ({ time }) => {
