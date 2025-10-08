@@ -90,7 +90,6 @@ const ScheduleGridDesktop = ({
                                 key={segment.id}
                                 segment={segment}
                                 startDate={startDate}
-                                endDate={endDate}
                                 index={index}
                             />
                         ))}
