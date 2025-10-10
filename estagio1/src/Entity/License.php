@@ -8,7 +8,21 @@ use App\Repository\LicenseRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+// 🎯 NUEVO: validación de Symfony para el callback de fechas/horas
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
+
+/**
+ * Entidad de Licencias/Ausencias.
+ * - Se añade validación de dominio para evitar intervalos incoherentes (mismo día con hora fin < hora inicio).
+ * - Se reescribe updateDays() con DateTimeImmutable + DatePeriod para evitar el warning "Undefined method modify".
+ */
+
+// 👉 NUEVO: habilita los lifecycle callbacks (prePersist, preUpdate) si no estaban funcionando.
+#[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: LicenseRepository::class)]
+// 👉 NUEVO: callback de validación a nivel de clase (Symfony)
+#[Assert\Callback('validateDates')]
 class License
 {
     #[ORM\Id]
@@ -56,11 +70,14 @@ class License
     #[ORM\OneToMany(mappedBy: 'license', targetEntity: Document::class, cascade: ['remove'], orphanRemoval: true)]
     private Collection $documents;  
 
-
     public function __construct()
     {
         $this->documents = new ArrayCollection();
     }
+
+    // -----------------------------
+    // Getters / Setters autogenerados
+    // -----------------------------
 
     public function getId(): ?int
     {
@@ -75,7 +92,6 @@ class License
     public function setUser(?User $user): static
     {
         $this->user = $user;
-
         return $this;
     }
 
@@ -87,7 +103,6 @@ class License
     public function setComments(?string $comments): static
     {
         $this->comments = $comments;
-
         return $this;
     }
 
@@ -99,7 +114,6 @@ class License
     public function setTypeId(?int $typeId): static
     {
         $this->typeId = $typeId;
-
         return $this;
     }
 
@@ -111,23 +125,30 @@ class License
     public function setType(?string $type): static
     {
         $this->type = $type;
-
         return $this;
     }
 
+    /**
+     * 🔁 Recalcula $days contando solo días laborables (L-V).
+     * Reescrito usando DateTimeImmutable + DatePeriod para evitar el warning de Intelephense.
+     */
     public function updateDays(): void
     {
         if ($this->dateStart && $this->dateEnd) {
-            $start = clone $this->dateStart;
-            $end = clone $this->dateEnd;
-            $days = 0;
+            // Normalizamos a DateTimeImmutable para poder usar modify() sin warnings
+            $start = \DateTimeImmutable::createFromInterface($this->dateStart);
+            $end   = \DateTimeImmutable::createFromInterface($this->dateEnd);
 
-            while ($start <= $end) {
-                $dayOfWeek = (int) $start->format('N'); // 1 (Lunes) ... 7 (Domingo)
+            // Periodo inclusivo: hasta $end (por eso sumamos +1 día en el límite)
+            $endInclusive = $end->modify('+1 day');
+            $period = new \DatePeriod($start, new \DateInterval('P1D'), $endInclusive);
+
+            $days = 0;
+            foreach ($period as $d) {
+                $dayOfWeek = (int) $d->format('N'); // 1 (Lunes) ... 7 (Domingo)
                 if ($dayOfWeek < 6) { // Solo lunes a viernes
                     $days++;
                 }
-                $start->modify('+1 day');
             }
 
             $this->days = $days;
@@ -136,37 +157,32 @@ class License
 
     public function getFechaHoraInicio(): ?string
     {
-        // Verificar si la fecha de inicio y la hora de inicio están disponibles
         if ($this->dateStart && $this->timeStart) {
             return $this->dateStart->format('d/m/Y') . ' ' . $this->timeStart->format('H:i');
         } elseif ($this->dateStart) {
-            // Si solo existe la fecha de inicio
-            return $this->dateStart->format('d/m/Y'); // Se agrega la hora como 00:00
+            return $this->dateStart->format('d/m/Y');
         }
-
-        return null; // Si no existe fecha ni hora de inicio
+        return null;
     }
 
     public function getFechaHoraFin(): ?string
     {
-        // Verificar si la fecha de finalización y la hora de finalización están disponibles
         if ($this->dateEnd && $this->timeEnd) {
             return $this->dateEnd->format('d/m/Y') . ' ' . $this->timeEnd->format('H:i');
         } elseif ($this->dateEnd) {
-            // Si solo existe la fecha de finalización
-            return $this->dateEnd->format('d/m/Y'); // Se agrega la hora como 00:00
+            return $this->dateEnd->format('d/m/Y');
         }
-
-        return null; // Si no existe fecha ni hora de finalización
+        return null;
     }
 
-    #[ORM\PrePersist] // Este método se ejecuta antes de que la entidad sea persistida
+    // ⚙️ Mantengo tus lifecycle hooks (y activo la clase con #[ORM\HasLifecycleCallbacks] arriba)
+    #[ORM\PrePersist]
     public function prePersist(): void
     {
         $this->updateDays();
     }
 
-    #[ORM\PreUpdate] // Este método se ejecuta antes de que la entidad sea actualizada
+    #[ORM\PreUpdate]
     public function preUpdate(): void
     {
         $this->updateDays();
@@ -181,9 +197,8 @@ class License
     {
         $this->dateStart = $dateStart;
         $this->updateDays();
-    
         return $this;
-    }    
+    }
 
     public function getDateEnd(): ?\DateTimeInterface
     {
@@ -194,7 +209,6 @@ class License
     {
         $this->dateEnd = $dateEnd;
         $this->updateDays();
-    
         return $this;
     }
 
@@ -206,7 +220,6 @@ class License
     public function setTimeStart(?\DateTimeInterface $timeStart): static
     {
         $this->timeStart = $timeStart;
-
         return $this;
     }
 
@@ -218,7 +231,6 @@ class License
     public function setTimeEnd(?\DateTimeInterface $timeEnd): static
     {
         $this->timeEnd = $timeEnd;
-
         return $this;
     }
 
@@ -230,7 +242,6 @@ class License
     public function setStatus(int $status): static
     {
         $this->status = $status;
-
         return $this;
     }
 
@@ -242,7 +253,6 @@ class License
     public function setDays(int $days): static
     {
         $this->days = $days;
-
         return $this;
     }
 
@@ -254,7 +264,6 @@ class License
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
-
         return $this;
     }
 
@@ -266,7 +275,6 @@ class License
     public function setExtraSegment(int $extraSegment): static
     {
         $this->extraSegment = $extraSegment;
-
         return $this;
     }
 
@@ -281,19 +289,16 @@ class License
             $this->documents->add($document);
             $document->setLicense($this);
         }
-
         return $this;
     }
 
     public function removeDocument(Document $document): static
     {
         if ($this->documents->removeElement($document)) {
-            // Set license to null on document before removal
             if ($document->getLicense() === $this) {
                 $document->setLicense(null);
             }
         }
-
         return $this;
     }
 
@@ -312,5 +317,35 @@ class License
             'isActive' => $this->isActive,
             'extraSegment' => $this->extraSegment,
         ];
-    }    
+    }
+
+    // -------------------------------------------
+    // ✅ NUEVO: Validación de dominio (Symfony)
+    // -------------------------------------------
+    /**
+     * Si la ausencia empieza y termina el mismo día y la hora de fin es
+     * anterior a la hora de inicio, generamos un error de validación.
+     * Evita el 500 al aprobar al frenar datos incoherentes.
+     */
+    public function validateDates(ExecutionContextInterface $context): void
+    {
+        if ($this->dateStart instanceof \DateTimeInterface &&
+            $this->dateEnd instanceof \DateTimeInterface &&
+            $this->timeStart instanceof \DateTimeInterface &&
+            $this->timeEnd instanceof \DateTimeInterface
+        ) {
+            $sameDay  = $this->dateStart->format('Y-m-d') === $this->dateEnd->format('Y-m-d');
+            $startVal = (int) $this->timeStart->format('His');
+            $endVal   = (int) $this->timeEnd->format('His');
+
+            if ($sameDay && $endVal < $startVal) {
+                $context->buildViolation(
+                    'La hora de fin no puede ser anterior a la hora de inicio en el mismo día. ' .
+                    'Si la ausencia cruza la medianoche, establezca la fecha de finalización al día siguiente o ajuste la hora de fin.'
+                )
+                ->atPath('timeEnd')
+                ->addViolation();
+            }
+        }
+    }
 }
