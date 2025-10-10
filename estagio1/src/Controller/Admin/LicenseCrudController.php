@@ -358,8 +358,14 @@ class LicenseCrudController extends AbstractCrudController
      */
     public function updateEntity(EntityManagerInterface $entityManager, $entityInstance): void
     {
+        $shouldCreateSegment = false;
+        $segmentPayload = null;
+        $shouldRemoveSegment = false;
+        $segmentToRemoveId = null;
+        $email = null;
+
         if ($entityInstance instanceof License) {
-            // 1) Normalización previa (cruce medianoche)
+            // 1) Normalizacin previa (cruce medianoche)
             $this->normalizeLicenseDates($entityInstance);
 
             $unitOfWork   = $entityManager->getUnitOfWork();
@@ -368,79 +374,94 @@ class LicenseCrudController extends AbstractCrudController
             $user = $entityInstance->getUser();
             $email = $user ? $user->getEmail() : null;
 
-            // Crear segmento extra al aprobar si no existe
+            // Marcamos acciones a ejecutar despus de que EasyAdmin/proceso
+            // principal haya actualizado la entidad (parent::updateEntity)
             if (
                 $entityInstance->getStatus() === 1 &&
                 $entityInstance->getExtraSegment() === 0
             ) {
-                /** @var User|null $user */
                 // Si no hay usuario asociado, no creamos el segmento
-                if (!$user) {
-                    // nothing to do: skip segment creation
-                } else {
-                    $segment = new UserExtraSegment();
-                    // Fechas/horas del propio registro aprobado
-                    $segment->setUser($user);
-                // La entidad UserExtraSegment dispone de una única fecha ($date)
-                // y campos timeStart/timeEnd. Mapeamos la fecha de inicio a
-                // setDate(). Si necesita soportar rangos multi-día, habría que
-                // crear varios segmentos o extender la entidad.
-                $segment->setDate($entityInstance->getDateStart());
-                $segment->setTimeStart($entityInstance->getTimeStart());
-                $segment->setTimeEnd($entityInstance->getTimeEnd());
-
-                // Mapear a tipo de segmento según typeId
-                if ($entityInstance->getTypeId() === 1) {
-                    $segment->setType(5);
-                } elseif ($entityInstance->getTypeId() === 2) {
-                    $segment->setType(6);
-                } else {
-                    $segment->setType(7);
-                }
-
-                    $entityManager->persist($segment);
-                    $entityManager->flush();
-                    $entityInstance->setExtraSegment($segment->getId());
+                if ($user) {
+                    $shouldCreateSegment = true;
+                    $segmentPayload = [
+                        'user' => $user,
+                        'date' => $entityInstance->getDateStart(),
+                        'timeStart' => $entityInstance->getTimeStart(),
+                        'timeEnd' => $entityInstance->getTimeEnd(),
+                        'typeId' => $entityInstance->getTypeId(),
+                        'comments' => $entityInstance->getComments(),
+                    ];
                 }
             }
 
-            // Si se rechaza y tenía segmento, eliminarlo
+            // Si se rechaza y tenía segmento, eliminarlo (también defer)
             if (
                 $entityInstance->getStatus() === 2 &&
                 $entityInstance->getExtraSegment() !== 0
             ) {
-                $segmentId = $entityInstance->getExtraSegment();
-                $segment = $entityManager->getRepository(UserExtraSegment::class)->find($segmentId);
-
-                if ($segment) {
-                    $entityManager->remove($segment);
-                }
-
+                $shouldRemoveSegment = true;
+                $segmentToRemoveId = $entityInstance->getExtraSegment();
                 $entityInstance->setExtraSegment(0);
-            }
-
-            // Envío de email si cambió el estado
-            if (isset($originalData['status']) && $originalData['status'] !== $entityInstance->getStatus()) {
-                $newStatusLabel = AbsenceConstants::STATUS_LABELS[$entityInstance->getStatus()] ?? 'Desconocido';
-
-                $htmlContent = $this->renderView('email/change_status_email.html.twig', [
-                    'newStatusLabel' => $newStatusLabel
-                ]);
-
-                // Solo enviamos email si tenemos una dirección válida
-                if ($email) {
-                    $emailMessage = (new Email())
-                        ->from('no-reply@intranek.com')
-                        ->to($email)
-                        ->subject('Solicitud de ausencia')
-                        ->html($htmlContent);
-
-                    $this->mailer->send($emailMessage);
-                }
             }
         }
 
+        // Primero dejamos que el flujo normal de EasyAdmin actualice la entidad
         parent::updateEntity($entityManager, $entityInstance);
+
+        // Ahora ejecutamos las acciones diferidas para evitar que el formulario
+        // de EasyAdmin intente mapear campos a la entidad equivocada.
+        if ($shouldCreateSegment && $segmentPayload) {
+            $segment = new UserExtraSegment();
+            $segment->setUser($segmentPayload['user']);
+            $segment->setDate($segmentPayload['date']);
+            $segment->setTimeStart($segmentPayload['timeStart']);
+            $segment->setTimeEnd($segmentPayload['timeEnd']);
+
+            // Mapear a tipo de segmento según typeId
+            if ($segmentPayload['typeId'] === 1) {
+                $segment->setType(5);
+            } elseif ($segmentPayload['typeId'] === 2) {
+                $segment->setType(6);
+            } else {
+                $segment->setType(7);
+            }
+
+            $entityManager->persist($segment);
+            $entityManager->flush();
+
+            // Asociamos el id del segmento a la licencia y guardamos
+            $entityInstance->setExtraSegment($segment->getId());
+            $entityManager->persist($entityInstance);
+            $entityManager->flush();
+        }
+
+        if ($shouldRemoveSegment && $segmentToRemoveId) {
+            $segment = $entityManager->getRepository(UserExtraSegment::class)->find($segmentToRemoveId);
+            if ($segment) {
+                $entityManager->remove($segment);
+                $entityManager->flush();
+            }
+        }
+
+        // Envío de email si cambió el estado (se hace después del flush principal)
+        if (isset($originalData['status']) && $originalData['status'] !== $entityInstance->getStatus()) {
+            $newStatusLabel = AbsenceConstants::STATUS_LABELS[$entityInstance->getStatus()] ?? 'Desconocido';
+
+            $htmlContent = $this->renderView('email/change_status_email.html.twig', [
+                'newStatusLabel' => $newStatusLabel
+            ]);
+
+            // Solo enviamos email si tenemos una dirección válida
+            if ($email) {
+                $emailMessage = (new Email())
+                    ->from('no-reply@intranek.com')
+                    ->to($email)
+                    ->subject('Solicitud de ausencia')
+                    ->html($htmlContent);
+
+                $this->mailer->send($emailMessage);
+            }
+        }
     }
 
     public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
