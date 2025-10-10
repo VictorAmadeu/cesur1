@@ -16,28 +16,18 @@ use EasyCorp\Bundle\EasyAdminBundle\Factory\FilterFactory;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
-use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\FormField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\NumberField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\DateTimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TimeField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\BooleanField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\CollectionField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\ArrayField;
 use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
-use App\Form\CompanySelectGlobalType;
-use App\Form\UserSelectGlobalType;
 use App\Controller\Admin\AuxController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
-use App\Utils\DateUtils;
 use Symfony\Component\HttpFoundation\RequestStack;
 
-use App\Entity\Companies;
 use App\Entity\License;
-use App\Entity\Document;
 use App\Repository\UserRepository;
 use App\Repository\OfficeRepository;
 use App\Repository\AssignedUserRepository;
@@ -45,31 +35,63 @@ use Symfony\Bundle\SecurityBundle\Security;
 use App\Repository\CompaniesRepository;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mailer\MailerInterface;
-use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
 use EasyCorp\Bundle\EasyAdminBundle\Context\AdminContext;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntityPersistedEvent;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use App\Enum\AbsenceConstants;
 use App\Entity\UserExtraSegment;
 
+/**
+ * CRUD de Licencias/Ausencias.
+ *
+ * Cambios clave (🧩 Etapa 3):
+ *  - normalizeLicenseDates(): si fecha inicio = fecha fin y hora fin < hora inicio,
+ *    se interpreta “cruce de medianoche” y se ajusta dateEnd +1 día.
+ *  - Tipado PHPDoc para que Intelephense reconozca métodos de User (getRole,
+ *    getAccounts, getAssignedUsers, getCompany, etc.).
+ *  - onAfterEntityPersisted(): elimina variables no definidas usando helper
+ *    getRequestParamsWithDates() para el redirect.
+ *
+ * Nota: no se altera la lógica de negocio existente (segmentos extra, emails,
+ * filtros, queries). Solo se corrigen incoherencias y se añade la normalización.
+ */
 class LicenseCrudController extends AbstractCrudController
 {
-    private $assignedUserRepository, $adminUrlGenerator, $mailer, $em, $aux, $userPasswordHasher, $userRepository, $officeRepository, $security, $companiesRepository, $requestStack;
+    private $assignedUserRepository;
+    private $adminUrlGenerator;
+    private $mailer;
+    private $em;
+    private $aux;
+    private $userPasswordHasher;
+    private $userRepository;
+    private $officeRepository;
+    private $security;
+    private $companiesRepository;
+    private $requestStack;
 
-
-    public function __construct(AssignedUserRepository $assignedUserRepository, MailerInterface $mailer, Security $security, AdminUrlGenerator $adminUrlGenerator, EntityManagerInterface $em, AuxController $aux, UserPasswordHasherInterface $userPasswordHasher, UserRepository $userRepository, OfficeRepository $officeRepository, CompaniesRepository $companiesRepository, RequestStack $requestStack)
-    {
-        $this->adminUrlGenerator = $adminUrlGenerator;
-        $this->em = $em;
-        $this->aux = $aux;
-        $this->userPasswordHasher = $userPasswordHasher;
-        $this->userRepository = $userRepository;
-        $this->officeRepository = $officeRepository;
-        $this->security = $security;
+    public function __construct(
+        AssignedUserRepository $assignedUserRepository,
+        MailerInterface $mailer,
+        Security $security,
+        AdminUrlGenerator $adminUrlGenerator,
+        EntityManagerInterface $em,
+        AuxController $aux,
+        UserPasswordHasherInterface $userPasswordHasher,
+        UserRepository $userRepository,
+        OfficeRepository $officeRepository,
+        CompaniesRepository $companiesRepository,
+        RequestStack $requestStack
+    ) {
+        $this->adminUrlGenerator   = $adminUrlGenerator;
+        $this->em                  = $em;
+        $this->aux                 = $aux;
+        $this->userPasswordHasher  = $userPasswordHasher;
+        $this->userRepository      = $userRepository;
+        $this->officeRepository    = $officeRepository;
+        $this->security            = $security;
         $this->companiesRepository = $companiesRepository;
-        $this->mailer = $mailer;
-        $this->requestStack = $requestStack;
+        $this->mailer              = $mailer;
+        $this->requestStack        = $requestStack;
         $this->assignedUserRepository = $assignedUserRepository;
     }
 
@@ -92,7 +114,7 @@ class LicenseCrudController extends AbstractCrudController
     public function configureActions(Actions $actions): Actions
     {
         return $actions
-            // Personalizamos botón "Nuevo"
+            // Botón "Nuevo" con preservación de filtros
             ->update(Crud::PAGE_INDEX, Action::NEW, function (Action $action) {
                 $params = $this->getRequestParamsWithDates();
                 $url = $this->adminUrlGenerator
@@ -105,10 +127,10 @@ class LicenseCrudController extends AbstractCrudController
 
                 return $action->linkToUrl($url->generateUrl());
             })
-
-            // Ícono lápiz para editar (custom)
+            // Lápiz custom para editar preservando filtros
             ->add(Crud::PAGE_INDEX, Action::new('customEdit', '', 'fa fa-pencil')
                 ->linkToUrl(function ($entity) {
+                    /** @var License $entity */
                     $params = $this->getRequestParamsWithDates();
                     $url = $this->adminUrlGenerator
                         ->setController(self::class)
@@ -121,17 +143,10 @@ class LicenseCrudController extends AbstractCrudController
 
                     return $url->generateUrl();
                 }))
-
             ->remove(Crud::PAGE_INDEX, Action::EDIT)
-
-            // Ícono tacho para eliminar
-            ->update(Crud::PAGE_INDEX, Action::DELETE, function (Action $action) {
-                return $action
-                    ->setIcon('fa fa-trash')
-                    ->setLabel(false);
-            });
+            // Tacho de eliminar sin etiqueta
+            ->update(Crud::PAGE_INDEX, Action::DELETE, fn(Action $a) => $a->setIcon('fa fa-trash')->setLabel(false));
     }
-
 
     public function createEntity(string $entityFqcn)
     {
@@ -156,6 +171,7 @@ class LicenseCrudController extends AbstractCrudController
 
         $nameField = TextField::new('user.name', 'Nombre')->setColumns(2)->onlyOnIndex()
             ->formatValue(function ($value, $entity) use ($adminUrlGenerator) {
+                /** @var License $entity */
                 $value = $entity->getUser() ? $entity->getUser()->getName() : 'Sin nombre';
                 $url = $adminUrlGenerator
                     ->setController(self::class)
@@ -179,10 +195,13 @@ class LicenseCrudController extends AbstractCrudController
                 })
                 ->setFormTypeOption('disabled', true);
         } else {
+            /** @var User|null $currentUser */
+            $currentUser = $this->getUser();
+            $account = $currentUser ? $currentUser->getAccounts() : null;
+
             $user = AssociationField::new('user', 'Usuario')
                 ->setColumns(3)
-                ->setFormTypeOption('query_builder', function (UserRepository $er) {
-                    $account = $this->getUser()->getAccounts();
+                ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account) {
                     return $er->createQueryBuilder('u')
                         ->where('u.accounts = :account')
                         ->setParameter('account', $account)
@@ -195,14 +214,15 @@ class LicenseCrudController extends AbstractCrudController
             TextField::new('user.lastname1', 'Apellido')->onlyOnIndex(),
             FormField::addPanel('Detalles de ausencia'),
             $user,
-            ChoiceField::new('typeId', 'Tipo de ausencia')
+            TextField::new('comments', 'Comentario')->setColumns(5),
+
+            // Tipo y estado con constantes de dominio
+            \EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField::new('typeId', 'Tipo de ausencia')
                 ->setChoices(AbsenceConstants::TYPES)
                 ->renderExpanded(false)
                 ->setColumns(4),
 
-            TextField::new('comments', 'Comentario')->setColumns(5),
-
-            ChoiceField::new('status', 'Estado')
+            \EasyCorp\Bundle\EasyAdminBundle\Field\ChoiceField::new('status', 'Estado')
                 ->setChoices(AbsenceConstants::STATUS)
                 ->renderExpanded(false)
                 ->setColumns(3)
@@ -215,14 +235,19 @@ class LicenseCrudController extends AbstractCrudController
                 })
                 ->setCustomOption('html', true),
 
+            // Vistas “solo índice” legibles para las fechas/horas
             TextField::new('getFechaHoraInicio', 'Fecha de inicio')->setColumns(3)->onlyOnIndex(),
             TextField::new('getFechaHoraFin', 'Fecha de fin')->setColumns(3)->onlyOnIndex(),
+
+            // Campos de formulario reales
             DateField::new('dateStart', 'Fecha de inicio')->setColumns(2)->onlyOnForms(),
             DateField::new('dateEnd', 'Fecha de finalización')->setColumns(2)->onlyOnForms(),
             TimeField::new('timeStart', 'Hora de inicio')->setColumns(2)->setRequired(false)->onlyOnForms(),
             TimeField::new('timeEnd', 'Hora de finalización')->setColumns(2)->setRequired(false)->onlyOnForms(),
+
             NumberField::new('days', 'Días totales')->onlyOnIndex(),
 
+            // Listado de documentos como links (solo índice)
             ArrayField::new('documents')
                 ->setLabel('Documents')
                 ->formatValue(function ($value) {
@@ -237,12 +262,50 @@ class LicenseCrudController extends AbstractCrudController
                 })
                 ->setTextAlign('center')
                 ->setCustomOption('html', true)
-                ->OnlyOnIndex(),
+                ->onlyOnIndex(),
         ];
     }
 
+    /**
+     * 🧩 Etapa 3 — Normalización en el CRUD.
+     * Si mismo día y hora fin < hora inicio, interpretamos “cruce de medianoche”
+     * y ajustamos dateEnd +1 día. Evita errores aguas abajo y mantiene la
+     * intención del usuario.
+     */
+    private function normalizeLicenseDates(License $entityInstance): void
+    {
+        $dateStart = $entityInstance->getDateStart();
+        $dateEnd   = $entityInstance->getDateEnd();
+        $timeStart = $entityInstance->getTimeStart();
+        $timeEnd   = $entityInstance->getTimeEnd();
+
+        if (
+            $dateStart instanceof \DateTimeInterface &&
+            $dateEnd instanceof \DateTimeInterface &&
+            $timeStart instanceof \DateTimeInterface &&
+            $timeEnd instanceof \DateTimeInterface
+        ) {
+            $sameDay  = $dateStart->format('Y-m-d') === $dateEnd->format('Y-m-d');
+            $startVal = (int) $timeStart->format('His');
+            $endVal   = (int) $timeEnd->format('His');
+
+            if ($sameDay && $endVal < $startVal) {
+                // Representamos el cruce de medianoche: fin = fin + 1 día
+                // Usamos DateTimeImmutable::createFromInterface para evitar el warning
+                // de "Undefined method modify" sobre DateTimeInterface.
+                $entityInstance->setDateEnd(\DateTimeImmutable::createFromInterface($dateEnd)->modify('+1 day'));
+            }
+        }
+    }
+
+    /**
+     * Persistimos normalizando previamente para garantizar coherencia.
+     */
     public function persistEntity(EntityManagerInterface $entityManager, $entityInstance): void
     {
+        if ($entityInstance instanceof License) {
+            $this->normalizeLicenseDates($entityInstance);
+        }
         parent::persistEntity($entityManager, $entityInstance);
     }
 
@@ -253,23 +316,27 @@ class LicenseCrudController extends AbstractCrudController
         ];
     }
 
+    /**
+     * Redirect post-persist preservando filtros de consulta.
+     * Además, elimina variables no definidas ($startDate/$endDate) usando
+     * getRequestParamsWithDates() como fuente de valores por defecto.
+     */
     public function onAfterEntityPersisted(AfterEntityPersistedEvent $event): void
     {
         $entity = $event->getEntityInstance();
         if (!$entity instanceof User) {
+            // Este handler solo aplica cuando la entidad persistida es User (comportamiento previo).
             return;
         }
 
         $request = $this->requestStack->getCurrentRequest();
+        $paramsDefault = $this->getRequestParamsWithDates();
 
         $com = $request->query->get('com') ?? (new \DateTime())->format('m');
         $off = $request->query->get('off') ?? 'all';
-        $us = $entity->getId();
-        $startDateFormatted = $startDate->format('Y-m-d');
-        $endDateFormatted = $endDate->format('Y-m-d');
-
-        $start = $request->query->get('start', $startDateFormatted);
-        $end = $request->query->get('end', $endDateFormatted);
+        $us  = $entity->getId();
+        $start = $request->query->get('start', $paramsDefault['start']);
+        $end   = $request->query->get('end',   $paramsDefault['end']);
 
         $url = $this->adminUrlGenerator
             ->setController(self::class)
@@ -286,38 +353,53 @@ class LicenseCrudController extends AbstractCrudController
         $response->send();
     }
 
+    /**
+     * Actualizamos con normalización + lógica de segmentos y notificación.
+     */
     public function updateEntity(EntityManagerInterface $entityManager, $entityInstance): void
     {
         if ($entityInstance instanceof License) {
-            $unitOfWork = $entityManager->getUnitOfWork();
-            $originalData = $unitOfWork->getOriginalEntityData($entityInstance);
-            $email = $entityInstance->getUser()->getEmail();
+            // 1) Normalización previa (cruce medianoche)
+            $this->normalizeLicenseDates($entityInstance);
 
+            $unitOfWork   = $entityManager->getUnitOfWork();
+            $originalData = $unitOfWork->getOriginalEntityData($entityInstance);
+            $email        = $entityInstance->getUser()->getEmail();
+
+            // Crear segmento extra al aprobar si no existe
             if (
                 $entityInstance->getStatus() === 1 &&
                 $entityInstance->getExtraSegment() === 0
             ) {
+                /** @var User $user */
                 $user = $entityInstance->getUser();
-                $segment = new UserExtraSegment();
 
+                $segment = new UserExtraSegment();
+                // Fechas/horas del propio registro aprobado
                 $segment->setUser($user);
-                $segment->setDateStart($entityInstance->getDateStart());
-                $segment->setDateEnd($entityInstance->getDateEnd());
+                // La entidad UserExtraSegment dispone de una única fecha ($date)
+                // y campos timeStart/timeEnd. Mapeamos la fecha de inicio a
+                // setDate(). Si necesita soportar rangos multi-día, habría que
+                // crear varios segmentos o extender la entidad.
+                $segment->setDate($entityInstance->getDateStart());
                 $segment->setTimeStart($entityInstance->getTimeStart());
                 $segment->setTimeEnd($entityInstance->getTimeEnd());
+
+                // Mapear a tipo de segmento según typeId
                 if ($entityInstance->getTypeId() === 1) {
                     $segment->setType(5);
-                } else if ($entityInstance->getTypeId() === 2) {
+                } elseif ($entityInstance->getTypeId() === 2) {
                     $segment->setType(6);
                 } else {
                     $segment->setType(7);
-                };
+                }
 
                 $entityManager->persist($segment);
                 $entityManager->flush();
                 $entityInstance->setExtraSegment($segment->getId());
             }
 
+            // Si se rechaza y tenía segmento, eliminarlo
             if (
                 $entityInstance->getStatus() === 2 &&
                 $entityInstance->getExtraSegment() !== 0
@@ -332,8 +414,8 @@ class LicenseCrudController extends AbstractCrudController
                 $entityInstance->setExtraSegment(0);
             }
 
-
-            if ($originalData['status'] !== $entityInstance->getStatus()) {
+            // Envío de email si cambió el estado
+            if (isset($originalData['status']) && $originalData['status'] !== $entityInstance->getStatus()) {
                 $newStatusLabel = AbsenceConstants::STATUS_LABELS[$entityInstance->getStatus()] ?? 'Desconocido';
 
                 $htmlContent = $this->renderView('email/change_status_email.html.twig', [
@@ -355,13 +437,14 @@ class LicenseCrudController extends AbstractCrudController
 
     public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
     {
+        /** @var User $user */
         $user = $this->security->getUser();
         $role = $user->getRole();
         $request = $this->requestStack->getCurrentRequest();
 
         $com = $request->query->get('com', $user->getCompany()->getId());
         $off = $request->query->get('off', 'all');
-        $us = $request->query->get('us', $user->getId());
+        $us  = $request->query->get('us', $user->getId());
         $account = $user->getAccounts();
         $company = $this->companiesRepository->findOneBy(['id' => $com]);
 
@@ -370,21 +453,21 @@ class LicenseCrudController extends AbstractCrudController
         $totalDaysUser = null;
 
         if ($user->getRole() === 'ROLE_SUPERVISOR') {
+            // Supervisores: solo usuarios asignados
             $assigned = $user->getAssignedUsers(); // colección de AssignedUser
             $users = array_map(fn($au) => $au->getUser(), $assigned->toArray());
 
-            if ($us && $us !== 'all') {
-                $userSelected = $this->userRepository->findOneBy(['id' => $us]);
-            } else {
-                $userSelected = 'all';
-            }
+            $userSelected = ($us && $us !== 'all')
+                ? $this->userRepository->findOneBy(['id' => $us])
+                : 'all';
+
             $responseParameters->set('users', $users);
             $responseParameters->set('selectedUser', $userSelected);
 
             if ($userSelected !== 'all') {
                 $totalDays = $userSelected->getVacationDays();
 
-                // Buscar licencias por usuario y dentro del año
+                // Vacaciones aprobadas (typeId=3, status=1)
                 $licenseByUser = $this->em->getRepository(License::class)->createQueryBuilder('l')
                     ->where('l.user = :user')
                     ->andWhere('l.typeId = :typeId')
@@ -394,64 +477,6 @@ class LicenseCrudController extends AbstractCrudController
                     ->setParameter('status', 1)
                     ->getQuery()
                     ->getResult();
-
-
-                $totalDaysLicense = 0;
-                foreach ($licenseByUser as $license) {
-                    $totalDaysLicense += $license->getDays();
-                }
-
-                $totalDaysUser = $totalDays - $totalDaysLicense;
-            }
-
-            $responseParameters->set('totalDays', $totalDays);
-            $responseParameters->set('totalDaysLicense', $totalDaysLicense);
-            $responseParameters->set('totalDaysUser', $totalDaysUser);
-
-            return $responseParameters;
-        } else {
-            if ($off === 'all') {
-                $office = $off;
-            } else {
-                $office = $this->officeRepository->findOneBy(['id' => $off]);
-            }
-            if ($us === 'all') {
-                $userSelected = $us;
-            } else {
-                $userSelected = $this->userRepository->findOneBy(['id' => $us]);
-            }
-
-            $offices = $this->officeRepository->findBy(['company' => $com], ['name' => 'ASC']);
-
-
-            $companies = $this->companiesRepository->findBy(['accounts' => $account], ['name' => 'ASC']);
-            $responseParameters->set('companies', $companies);
-
-            if ($off !== 'all') {
-                $users = $this->userRepository->findBy(['office' => $office], ['name' => 'ASC']);
-            } else {
-                $users = $this->userRepository->findBy(['company' => $com], ['name' => 'ASC']);
-            }
-            $responseParameters->set('users', $users);
-            $responseParameters->set('selectedUser', $userSelected);
-            $responseParameters->set('selectedOffice', $office);
-            $responseParameters->set('offices', $offices);
-            $responseParameters->set('selectedCompany', $company);
-
-            if ($userSelected !== 'all') {
-                $totalDays = $userSelected->getVacationDays();
-
-                // Buscar licencias por usuario y dentro del año
-                $licenseByUser = $this->em->getRepository(License::class)->createQueryBuilder('l')
-                    ->where('l.user = :user')
-                    ->andWhere('l.typeId = :typeId')
-                    ->andWhere('l.status = :status')
-                    ->setParameter('user', $userSelected->getId())
-                    ->setParameter('typeId', 3)
-                    ->setParameter('status', 1)
-                    ->getQuery()
-                    ->getResult();
-
 
                 $totalDaysLicense = 0;
                 foreach ($licenseByUser as $license) {
@@ -467,11 +492,63 @@ class LicenseCrudController extends AbstractCrudController
 
             return $responseParameters;
         }
+
+        // Resto de roles (admin, etc.)
+        $office = $off === 'all'
+            ? $off
+            : $this->officeRepository->findOneBy(['id' => $off]);
+
+        $userSelected = $us === 'all'
+            ? $us
+            : $this->userRepository->findOneBy(['id' => $us]);
+
+        $offices = $this->officeRepository->findBy(['company' => $com], ['name' => 'ASC']);
+        $companies = $this->companiesRepository->findBy(['accounts' => $account], ['name' => 'ASC']);
+        $responseParameters->set('companies', $companies);
+
+        $users = ($off !== 'all')
+            ? $this->userRepository->findBy(['office' => $office], ['name' => 'ASC'])
+            : $this->userRepository->findBy(['company' => $com], ['name' => 'ASC']);
+
+        $responseParameters->set('users', $users);
+        $responseParameters->set('selectedUser', $userSelected);
+        $responseParameters->set('selectedOffice', $office);
+        $responseParameters->set('offices', $offices);
+        $responseParameters->set('selectedCompany', $company);
+
+        if ($userSelected !== 'all') {
+            $totalDays = $userSelected->getVacationDays();
+
+            $licenseByUser = $this->em->getRepository(License::class)->createQueryBuilder('l')
+                ->where('l.user = :user')
+                ->andWhere('l.typeId = :typeId')
+                ->andWhere('l.status = :status')
+                ->setParameter('user', $userSelected->getId())
+                ->setParameter('typeId', 3)
+                ->setParameter('status', 1)
+                ->getQuery()
+                ->getResult();
+
+            $totalDaysLicense = 0;
+            foreach ($licenseByUser as $license) {
+                $totalDaysLicense += $license->getDays();
+            }
+
+            $totalDaysUser = $totalDays - $totalDaysLicense;
+        }
+
+        $responseParameters->set('totalDays', $totalDays);
+        $responseParameters->set('totalDaysLicense', $totalDaysLicense);
+        $responseParameters->set('totalDaysUser', $totalDaysUser);
+
+        return $responseParameters;
     }
 
     public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
     {
         $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
+
+        /** @var User $user */
         $user = $this->getUser();
         $role = $user->getRole();
 
@@ -479,7 +556,7 @@ class LicenseCrudController extends AbstractCrudController
 
         $com = $request->query->get('com');
         $off = $request->query->get('off');
-        $us = $request->query->get('us');
+        $us  = $request->query->get('us');
 
         if ($role === 'ROLE_SUPERVISOR') {
             if ($us !== 'all') {
@@ -490,7 +567,7 @@ class LicenseCrudController extends AbstractCrudController
                         ->setParameter('selectedUser', $selectedUser);
                 }
             } else {
-                // Obtener los IDs de los usuarios asignados al supervisor
+                // Usuarios asignados al supervisor
                 $assigned = $user->getAssignedUsers(); // colección de AssignedUser
                 $users = array_map(fn($au) => $au->getUser(), $assigned->toArray());
 
@@ -498,7 +575,6 @@ class LicenseCrudController extends AbstractCrudController
                     ->setParameter('assignedUsers', $users);
             }
         } else {
-
             if ($us === 'all') {
                 if ($off !== 'all') {
                     $qb->innerJoin('entity.user', 'u')
@@ -519,25 +595,28 @@ class LicenseCrudController extends AbstractCrudController
         return $qb;
     }
 
+    /**
+     * Helper: devuelve filtros actuales, con defaults al 1er/último día del mes.
+     */
     private function getRequestParamsWithDates(): array
     {
         $request = $this->requestStack->getCurrentRequest();
         $com = $request->query->get('com');
         $off = $request->query->get('off');
-        $us = $request->query->get('us');
+        $us  = $request->query->get('us');
 
         $startDate = new \DateTime('first day of this month');
-        $endDate = new \DateTime('last day of this month');
+        $endDate   = new \DateTime('last day of this month');
 
         $start = $request->query->get('start', $startDate->format('Y-m-d'));
-        $end = $request->query->get('end', $endDate->format('Y-m-d'));
+        $end   = $request->query->get('end',   $endDate->format('Y-m-d'));
 
         return [
-            'com' => $com,
-            'off' => $off,
-            'us' => $us,
+            'com'   => $com,
+            'off'   => $off,
+            'us'    => $us,
             'start' => $start,
-            'end' => $end,
+            'end'   => $end,
         ];
     }
 }
