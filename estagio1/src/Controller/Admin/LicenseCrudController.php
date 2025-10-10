@@ -364,19 +364,23 @@ class LicenseCrudController extends AbstractCrudController
 
             $unitOfWork   = $entityManager->getUnitOfWork();
             $originalData = $unitOfWork->getOriginalEntityData($entityInstance);
-            $email        = $entityInstance->getUser()->getEmail();
+            // Protegemos en caso de que la licencia no tenga usuario asociado
+            $user = $entityInstance->getUser();
+            $email = $user ? $user->getEmail() : null;
 
             // Crear segmento extra al aprobar si no existe
             if (
                 $entityInstance->getStatus() === 1 &&
                 $entityInstance->getExtraSegment() === 0
             ) {
-                /** @var User $user */
-                $user = $entityInstance->getUser();
-
-                $segment = new UserExtraSegment();
-                // Fechas/horas del propio registro aprobado
-                $segment->setUser($user);
+                /** @var User|null $user */
+                // Si no hay usuario asociado, no creamos el segmento
+                if (!$user) {
+                    // nothing to do: skip segment creation
+                } else {
+                    $segment = new UserExtraSegment();
+                    // Fechas/horas del propio registro aprobado
+                    $segment->setUser($user);
                 // La entidad UserExtraSegment dispone de una única fecha ($date)
                 // y campos timeStart/timeEnd. Mapeamos la fecha de inicio a
                 // setDate(). Si necesita soportar rangos multi-día, habría que
@@ -394,9 +398,10 @@ class LicenseCrudController extends AbstractCrudController
                     $segment->setType(7);
                 }
 
-                $entityManager->persist($segment);
-                $entityManager->flush();
-                $entityInstance->setExtraSegment($segment->getId());
+                    $entityManager->persist($segment);
+                    $entityManager->flush();
+                    $entityInstance->setExtraSegment($segment->getId());
+                }
             }
 
             // Si se rechaza y tenía segmento, eliminarlo
@@ -422,13 +427,16 @@ class LicenseCrudController extends AbstractCrudController
                     'newStatusLabel' => $newStatusLabel
                 ]);
 
-                $emailMessage = (new Email())
-                    ->from('no-reply@intranek.com')
-                    ->to($email)
-                    ->subject('Solicitud de ausencia')
-                    ->html($htmlContent);
+                // Solo enviamos email si tenemos una dirección válida
+                if ($email) {
+                    $emailMessage = (new Email())
+                        ->from('no-reply@intranek.com')
+                        ->to($email)
+                        ->subject('Solicitud de ausencia')
+                        ->html($htmlContent);
 
-                $this->mailer->send($emailMessage);
+                    $this->mailer->send($emailMessage);
+                }
             }
         }
 
