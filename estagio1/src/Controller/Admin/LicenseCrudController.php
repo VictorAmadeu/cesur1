@@ -24,8 +24,8 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\ArrayField;
 use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
 use App\Controller\Admin\AuxController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
-use Symfony\Component\HttpFoundation\RequestStack;
+    use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
+    use Symfony\Component\HttpFoundation\RequestStack;
 
 use App\Entity\License;
 use App\Repository\UserRepository;
@@ -291,8 +291,6 @@ class LicenseCrudController extends AbstractCrudController
 
             if ($sameDay && $endVal < $startVal) {
                 // Representamos el cruce de medianoche: fin = fin + 1 día
-                // Usamos DateTimeImmutable::createFromInterface para evitar el warning
-                // de "Undefined method modify" sobre DateTimeInterface.
                 $entityInstance->setDateEnd(\DateTimeImmutable::createFromInterface($dateEnd)->modify('+1 day'));
             }
         }
@@ -325,7 +323,6 @@ class LicenseCrudController extends AbstractCrudController
     {
         $entity = $event->getEntityInstance();
         if (!$entity instanceof User) {
-            // Este handler solo aplica cuando la entidad persistida es User (comportamiento previo).
             return;
         }
 
@@ -365,22 +362,22 @@ class LicenseCrudController extends AbstractCrudController
         $email = null;
 
         if ($entityInstance instanceof License) {
-            // 1) Normalizacin previa (cruce medianoche)
+            // 1) Normalización previa (cruce medianoche)
             $this->normalizeLicenseDates($entityInstance);
 
             $unitOfWork   = $entityManager->getUnitOfWork();
             $originalData = $unitOfWork->getOriginalEntityData($entityInstance);
+
             // Protegemos en caso de que la licencia no tenga usuario asociado
             $user = $entityInstance->getUser();
             $email = $user ? $user->getEmail() : null;
 
-            // Marcamos acciones a ejecutar despus de que EasyAdmin/proceso
+            // Marcamos acciones a ejecutar después de que EasyAdmin/proceso
             // principal haya actualizado la entidad (parent::updateEntity)
             if (
                 $entityInstance->getStatus() === 1 &&
                 $entityInstance->getExtraSegment() === 0
             ) {
-                // Si no hay usuario asociado, no creamos el segmento
                 if ($user) {
                     $shouldCreateSegment = true;
                     $segmentPayload = [
@@ -394,7 +391,7 @@ class LicenseCrudController extends AbstractCrudController
                 }
             }
 
-            // Si se rechaza y tenía segmento, eliminarlo (también defer)
+            // Si se rechaza y tenía segmento, eliminarlo (deferred)
             if (
                 $entityInstance->getStatus() === 2 &&
                 $entityInstance->getExtraSegment() !== 0
@@ -483,7 +480,7 @@ class LicenseCrudController extends AbstractCrudController
 
         if ($user->getRole() === 'ROLE_SUPERVISOR') {
             // Supervisores: solo usuarios asignados
-            $assigned = $user->getAssignedUsers(); // colección de AssignedUser
+            $assigned = $user->getAssignedUsers();
             $users = array_map(fn($au) => $au->getUser(), $assigned->toArray());
 
             $userSelected = ($us && $us !== 'all')

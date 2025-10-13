@@ -129,7 +129,6 @@ class UserExtraSegment
     {
         if ($dateTime === null) {
             $this->timeStart = null;
-            // No tocamos $this->date si no viene nada.
             return $this;
         }
 
@@ -143,7 +142,6 @@ class UserExtraSegment
 
     public function getDateStart(): ?\DateTimeInterface
     {
-        // Si tuvieras que reconstruir un solo DateTime combinando $date + $timeStart:
         if ($this->date === null || $this->timeStart === null) {
             return null;
         }

@@ -25,7 +25,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TimeField;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 
-use Symfony\Bundle\SecurityBundle\Security; // ✅ usar el servicio moderno (evita deprecations)
+use Symfony\Bundle\SecurityBundle\Security; // usar el servicio moderno
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -92,7 +92,6 @@ class UserExtraSegmentCrudController extends AbstractCrudController
             ->setEntityLabelInSingular('Segmento Extraordinario')
             ->setEntityLabelInPlural('Segmentos Extraordinarios')
             ->showEntityActionsInlined()
-            // plantilla custom existente
             ->overrideTemplate('crud/index', 'admin/UserExtraSegment/custom_index.html.twig');
     }
 
@@ -151,7 +150,6 @@ class UserExtraSegmentCrudController extends AbstractCrudController
             ->add(Crud::PAGE_NEW, Action::INDEX)
             ->remove(Crud::PAGE_NEW, Action::SAVE_AND_ADD_ANOTHER)
             ->remove(Crud::PAGE_EDIT, Action::SAVE_AND_CONTINUE);
-            // (No quitamos INDEX tras añadirlo: mantener navegación estable)
     }
 
     public function configureFields(string $pageName): iterable
