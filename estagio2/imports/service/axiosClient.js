@@ -2,44 +2,30 @@ import axios from "axios";
 import Cookies from "js-cookie";
 import { Meteor } from "meteor/meteor";
 
-// Instancia de Axios con baseURL desde settings (debe incluir el /api)
+// Crear una instancia de Axios
 const axiosClient = axios.create({
-  baseURL: Meteor.settings?.public?.baseUrl,
-  timeout: 30000,
+  baseURL: Meteor.settings.public.baseUrl,
+  timeout: 30000, // Tiempo límite para las solicitudes
 });
 
-// Interceptor: añade JWT si existe
-axiosClient.interceptors.request.use(
-  (config) => {
-    const token = Cookies.get("tokenIntranEK");
-    if (token) {
-      // NOTA: no forzamos Content-Type aquí; axios la ajusta según el body (JSON vs FormData)
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Agregar un interceptor para incluir el token automáticamente
+axiosClient.interceptors.request.use((config) => {
+  const token = Cookies.get("tokenIntranEK");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
-// Interceptor: manejo global de respuestas/errores
+// Manejar respuestas globales
 axiosClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error?.response?.status;
-
-    if (status === 401) {
-      // Sesión expirada o token inválido: limpiamos y redirigimos al login
-      try {
-        Cookies.remove("tokenIntranEK");
-      } catch (_) {}
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
-    } else if (!error.response) {
-      // Error de red (timeout, CORS, desconexión)
-      console.error("Error de red o tiempo de espera agotado.");
+    if (error.response && error.response.status === 401) {
+      console.error("Sesión expirada. Por favor, inicia sesión nuevamente.");
     }
-
     return Promise.reject(error);
   }
 );
