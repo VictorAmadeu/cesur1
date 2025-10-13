@@ -1,7 +1,7 @@
 {
   "public": {
-    "photoUrl": "https://localhost:8000/uploads/companiesLogoAPP",
-    "baseUrl": "https://127.0.0.1:8000/api/"
+    "photoUrl": "https://admin.intranek.com/uploads/companiesLogoAPP",
+    "baseUrl": "https://admin.intranek.com/api/"
   },
   "private": {},
   "TZ": "Europe/Madrid"

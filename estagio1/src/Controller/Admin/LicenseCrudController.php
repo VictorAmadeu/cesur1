@@ -24,8 +24,8 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\ArrayField;
 use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
 use App\Controller\Admin\AuxController;
 use EasyCorp\Bundle\EasyAdminBundle\Field\DateField;
-    use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
-    use Symfony\Component\HttpFoundation\RequestStack;
+use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 use App\Entity\License;
 use App\Repository\UserRepository;
@@ -49,11 +49,14 @@ use App\Entity\UserExtraSegment;
  *    se interpreta “cruce de medianoche” y se ajusta dateEnd +1 día.
  *  - Tipado PHPDoc para que Intelephense reconozca métodos de User (getRole,
  *    getAccounts, getAssignedUsers, getCompany, etc.).
- *  - onAfterEntityPersisted(): elimina variables no definidas usando helper
- *    getRequestParamsWithDates() para el redirect.
+ *  - onAfterEntityPersisted(): corrige tipo de entidad y preserva filtros/fechas.
+ *  - createIndexQueryBuilder(): AÑADE FILTRO POR RANGO DE FECHAS (por defecto
+ *    TODO EL AÑO EN CURSO si no vienen ?start y ?end), mostrando ausencias
+ *    posteriores al día actual también.
+ *  - getRequestParamsWithDates(): por defecto, 1 de enero → 31 de diciembre (23:59:59).
  *
  * Nota: no se altera la lógica de negocio existente (segmentos extra, emails,
- * filtros, queries). Solo se corrigen incoherencias y se añade la normalización.
+ * filtros por usuario/oficina/compañía). Solo se corrigen incoherencias y se añade la normalización.
  */
 class LicenseCrudController extends AbstractCrudController
 {
@@ -316,13 +319,14 @@ class LicenseCrudController extends AbstractCrudController
 
     /**
      * Redirect post-persist preservando filtros de consulta.
-     * Además, elimina variables no definidas ($startDate/$endDate) usando
-     * getRequestParamsWithDates() como fuente de valores por defecto.
+     * Además, corrige el tipo de entidad (License) y obtiene el usuario de la licencia.
      */
     public function onAfterEntityPersisted(AfterEntityPersistedEvent $event): void
     {
         $entity = $event->getEntityInstance();
-        if (!$entity instanceof User) {
+
+        // 🔧 FIX SEGURO: este evento en este CRUD va a recibir normalmente License, no User.
+        if (!$entity instanceof License) {
             return;
         }
 
@@ -331,7 +335,10 @@ class LicenseCrudController extends AbstractCrudController
 
         $com = $request->query->get('com') ?? (new \DateTime())->format('m');
         $off = $request->query->get('off') ?? 'all';
-        $us  = $entity->getId();
+
+        // Tomamos el id de usuario asociado a la licencia recién creada
+        $us  = $entity->getUser() ? $entity->getUser()->getId() : 'all';
+
         $start = $request->query->get('start', $paramsDefault['start']);
         $end   = $request->query->get('end',   $paramsDefault['end']);
 
@@ -570,8 +577,20 @@ class LicenseCrudController extends AbstractCrudController
         return $responseParameters;
     }
 
-    public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
-    {
+    /**
+     * 🔎 Query del índice con filtros de rol/usuario/oficina/compañía
+     *    + FILTRO POR RANGO DE FECHAS (default: TODO EL AÑO EN CURSO).
+     *
+     * Cubre el caso reportado: si el parámetro ?end coincide con "hoy",
+     * el listado no oculta las solicitudes futuras porque, si NO vienen start/end,
+     * se usa por defecto 1 enero → 31 diciembre (23:59:59).
+     */
+    public function createIndexQueryBuilder(
+        SearchDto $searchDto,
+        EntityDto $entityDto,
+        FieldCollection $fields,
+        FilterCollection $filters
+    ): QueryBuilder {
         $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
 
         /** @var User $user */
@@ -618,11 +637,40 @@ class LicenseCrudController extends AbstractCrudController
             }
         }
 
+        // 🗓️ AÑADIMOS FILTRO DE RANGO DE FECHAS (solapamiento):
+        // entity.dateStart <= :end  AND  entity.dateEnd >= :start
+        // Si no vienen ?start/?end en la URL, usamos 1 enero → 31 diciembre (23:59:59).
+        $startParam = $request->query->get('start');
+        $endParam   = $request->query->get('end');
+
+        if ($startParam) {
+            $start = new \DateTime($startParam);
+        } else {
+            $start = (new \DateTime('first day of january'))->setTime(0, 0, 0);
+        }
+
+        if ($endParam) {
+            $end = new \DateTime($endParam);
+            // Si viene solo fecha (00:00:00), la extendemos hasta fin de día para incluirla
+            if ($end->format('H:i:s') === '00:00:00') {
+                $end->setTime(23, 59, 59);
+            }
+        } else {
+            $end = (new \DateTime('last day of december'))->setTime(23, 59, 59);
+        }
+
+        $qb
+            ->andWhere('entity.dateStart <= :endDateFilter')
+            ->andWhere('entity.dateEnd   >= :startDateFilter')
+            ->setParameter('startDateFilter', $start)
+            ->setParameter('endDateFilter',   $end);
+
         return $qb;
     }
 
     /**
-     * Helper: devuelve filtros actuales, con defaults al 1er/último día del mes.
+     * Helper: devuelve filtros actuales, con defaults al 1er/último día del AÑO.
+     * (Antes: mes actual. Cambio para que el listado incluya solicitudes posteriores a “hoy”.)
      */
     private function getRequestParamsWithDates(): array
     {
@@ -631,8 +679,9 @@ class LicenseCrudController extends AbstractCrudController
         $off = $request->query->get('off');
         $us  = $request->query->get('us');
 
-        $startDate = new \DateTime('first day of this month');
-        $endDate   = new \DateTime('last day of this month');
+        // 📅 Nuevo por defecto: todo el año en curso
+        $startDate = (new \DateTime('first day of january'))->setTime(0, 0, 0);
+        $endDate   = (new \DateTime('last day of december'))->setTime(23, 59, 59);
 
         $start = $request->query->get('start', $startDate->format('Y-m-d'));
         $end   = $request->query->get('end',   $endDate->format('Y-m-d'));
