@@ -1,8 +1,9 @@
 {
-  "public": {
-    "photoUrl": "https://admin.intranek.com/uploads/companiesLogoAPP",
-    "baseUrl": "https://admin.intranek.com/api/"
-  },
-  "private": {},
-  "TZ": "Europe/Madrid"
-}
+    "public": {
+      "photoUrl": "https://admin.intranek.com/uploads/companiesLogoAPP",
+      "baseUrl": "https://admin.intranek.com/api/"
+    },
+    "private": {},
+    "TZ": "Europe/Madrid"
+  }
+  
