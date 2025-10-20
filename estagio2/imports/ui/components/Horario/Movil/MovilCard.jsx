@@ -6,7 +6,6 @@ const MovilCard = ({ scheduleDay }) => {
     return <p className="text-center text-gray-500">No hay datos de horario.</p>;
   }
 
-
   return (
     <div className="flex flex-col gap-4 p-4 mb-4 max-w-3xl justify-center align-center mx-auto">
       {Object.entries(scheduleDay).map(([date, info]) => {
