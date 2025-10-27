@@ -16,6 +16,17 @@ use App\Service\SlotsService;
 use App\Service\UserExtraSegmentService;
 use App\Repository\TimesRegisterRepository;
 
+/**
+ * Servicio de orquestación de fichajes.
+ * - Maneja fichajes automáticos (toggle entrada/salida).
+ * - Maneja fichajes manuales (rango hora inicio/fin).
+ * - Recalcula totales del día.
+ * 
+ * Cambios clave:
+ *  - [NUEVO] Bloqueo de registros MANUALES en el FUTURO (defensa en profundidad, además del Controller).
+ *  - [DEFENSA] Validaciones adicionales: fin > inicio y al menos 1 minuto de duración (sin romper contratos).
+ *  - Comentarios pedagógicos y limpieza menor.
+ */
 class TimeRegisterManager
 {
     private $em;
@@ -26,8 +37,15 @@ class TimeRegisterManager
     private $userExtraSegmentService;
     private $timeRegisterRepository;
 
-    public function __construct(EntityManagerInterface $em, UserWorkScheduleRepository $userWorkScheduleRepository, WorkScheduleChecker $workScheduleChecker, TimeSlotHelper $timeSlotHelper, SlotsService $slotsService, UserExtraSegmentService $userExtraSegmentService, TimesRegisterRepository $timeRegisterRepository)
-    {
+    public function __construct(
+        EntityManagerInterface $em,
+        UserWorkScheduleRepository $userWorkScheduleRepository,
+        WorkScheduleChecker $workScheduleChecker,
+        TimeSlotHelper $timeSlotHelper,
+        SlotsService $slotsService,
+        UserExtraSegmentService $userExtraSegmentService,
+        TimesRegisterRepository $timeRegisterRepository
+    ) {
         $this->em = $em;
         $this->userWorkScheduleRepository = $userWorkScheduleRepository;
         $this->workScheduleChecker = $workScheduleChecker;
@@ -37,16 +55,18 @@ class TimeRegisterManager
         $this->timeRegisterRepository = $timeRegisterRepository;
     }
 
+    /**
+     * Toggle de fichaje automático (entrada/salida).
+     */
     public function handleTimeRegister(User $user, ?string $comments, ?string $projectId): array
     {
-        $currentTime = new \DateTime();
+        $currentTime = new \DateTime(); // TZ ya fijada en controller
         $permissionApply = $user->getCompany()->getApplyAssignedSchedule();
         $project = null;
 
         if ($projectId) {
             $project = $this->em->getRepository(Projects::class)->findOneBy(['id' => $projectId]);
         }
-
         if ($projectId && !$project) {
             return ['code' => 400, 'message' => 'El proyecto no existe.'];
         }
@@ -54,18 +74,20 @@ class TimeRegisterManager
         $response = $this->slotsService->checkSlot($currentTime, $user);
         $slot = $response['slot'];
 
-
+        // checkSlot devuelve 400 cuando el último registro se elimina por <1 minuto
         if ($response['code'] === 400) {
-            return ['message' => 'El último registro ha sido eliminado debido a una diferencia menor a 1 minuto.', 'code' => 401];
+            return [
+                'message' => 'El último registro ha sido eliminado debido a una diferencia menor a 1 minuto.',
+                'code' => 401
+            ];
         }
 
-        // Determinar acción a realizar
         $action = $this->timeSlotHelper->getSlotActionFromCode($response['code']);
 
         $scheduleCheck = ['code' => 403];
         $scheduleType = ScheduleType::NORMAL;
 
-        // Validar horario laboral solo si la empresa tiene activada la restricción
+        // Validación de horario laboral solo si la empresa lo aplica
         if ($permissionApply) {
             $hasPendingRegisters = $this->hasPendingRegistersInScheduleRange($user, $currentTime);
             if ($hasPendingRegisters['code'] === 400) {
@@ -79,11 +101,12 @@ class TimeRegisterManager
                 $scheduleType = ScheduleType::from($scheduleCheck['type']);
             }
         } else {
-            // Sin validación de horario → se considera normal
+            // Sin restricción de horario laboral
             $scheduleCheck['code'] = 200;
             $scheduleType = ScheduleType::NORMAL;
         }
 
+        // Acciones según estado actual del slot
         switch ($response['code']) {
             case 200: // Slot abierto → cerrar
                 $slot = $this->timeSlotHelper->closeSlot($slot, $currentTime);
@@ -106,22 +129,46 @@ class TimeRegisterManager
                 $this->em->flush();
                 break;
         }
+
         return ['message' => 'Registro exitoso.', 'code' => 200];
     }
 
+    /**
+     * Registro MANUAL (rango de horas).
+     * Defensa en profundidad:
+     *  - Bloqueo de futuro (además del Controller).
+     *  - Validaciones fin > inicio y duración mínima 60s.
+     */
     public function handleTimeRegisterManual(User $user, ?string $projectId, \DateTimeInterface $hourStart, \DateTimeInterface $hourEnd): array
     {
         $permissionApply = $user->getCompany()->getApplyAssignedSchedule();
         $project = null;
 
+        // [DEFENSA] Comprobación básica de rango válido (el controller ya valida, pero reforzamos aquí)
+        if ($hourEnd <= $hourStart) {
+            return ['code' => 400, 'message' => 'Debes proporcionar un rango de horario válido.'];
+        }
+
+        // [DEFENSA] Al menos 1 minuto de diferencia para alinear con la lógica de checkSlot
+        if (($hourEnd->getTimestamp() - $hourStart->getTimestamp()) < 60) {
+            return ['code' => 400, 'message' => 'La diferencia entre inicio y fin debe ser de al menos 1 minuto.'];
+        }
+
+        // [NUEVO] No permitir horarios en el futuro (evita “fichar en futuro” aunque el front intente colarse)
+        $now = new \DateTime(); // TZ: la que viene del controlador (Europe/Madrid)
+        if ($hourStart > $now || $hourEnd > $now) {
+            return ['code' => 400, 'message' => 'No se puede registrar un horario en el futuro.'];
+        }
+
+        // Proyecto (opcional)
         if ($projectId) {
             $project = $this->em->getRepository(Projects::class)->findOneBy(['id' => $projectId]);
         }
-
         if ($projectId && !$project) {
             return ['code' => 400, 'message' => 'El proyecto no existe.'];
         }
 
+        // Por defecto, si la empresa no aplica control horario, todo queda como COMPLETED/NORMAL
         $scheduleCheck = [
             'code' => 200,
             'type' => ScheduleType::NORMAL,
@@ -129,21 +176,24 @@ class TimeRegisterManager
             'message' => 'El control de horario no aplica.',
         ];
 
+        // Si la empresa aplica control de horario, delegamos la validación manual
         if ($permissionApply) {
             $scheduleCheck = $this->workScheduleChecker->checkWorkScheduleManual($hourStart, $hourEnd);
-
             if ($scheduleCheck['code'] === 404) {
+                // coherente con la firma actual del checker, devolvemos tal cual
                 return $scheduleCheck;
             }
         }
 
+        // La fecha del registro es la del inicio (negocio actual)
         $date = new \DateTime($hourStart->format('Y-m-d'));
 
-        // Determinar el siguiente slot
+        // Determinar el siguiente slot para ese día
         $lastSlot = $this->em->getRepository(TimesRegister::class)
             ->findOneBy(['user' => $user, 'date' => $date], ['slot' => 'DESC']);
         $nextSlot = $lastSlot ? $lastSlot->getSlot() + 1 : 1;
 
+        // Crear registro
         $newTime = new TimesRegister();
         $newTime->setUser($user);
         $newTime->setDate($date);
@@ -155,13 +205,14 @@ class TimeRegisterManager
         $newTime->setStatus(TimeRegisterStatus::CLOSED);
         $newTime->setJustificationStatus($scheduleCheck['justificationStatus']);
         $newTime->setScheduleType($scheduleCheck['type']);
+        // Los totales se recalculan abajo, pero inicializamos en 0 por claridad.
         $newTime->setTotalTime('00:00:00');
         $newTime->setTotalSlotTime('00:00:00');
 
         $this->em->persist($newTime);
         $this->em->flush();
 
-        // Recalcular los tiempos del día
+        // Recalcular totales del día
         $this->recalculateTimesForUserAndDate($user, $date);
 
         return [
@@ -170,6 +221,9 @@ class TimeRegisterManager
         ];
     }
 
+    /**
+     * Rellena metadatos de control horario en un slot (auto toggle).
+     */
     private function applyScheduleMetadata(TimesRegister $slot, ScheduleType $type, int $code): void
     {
         $slot->setScheduleType($type);
@@ -178,24 +232,34 @@ class TimeRegisterManager
         );
     }
 
+    /**
+     * Listado por estado de justificación.
+     */
     public function getByJustificationStatus(User $user, ?string $status): array
     {
         try {
             $results = $this->em->getRepository(TimesRegister::class)
                 ->findBy(['user' => $user, 'justificationStatus' => $status, 'status' => 1], ['id' => 'DESC']);
+
             return ['code' => 200, 'data' => $results];
         } catch (\Exception $e) {
-            // Podés loguear $e->getMessage() aquí si tenés un logger
+            // Aquí se podría loguear el error si hay logger disponible
             return ['code' => 500, 'message' => 'Error al obtener los registros'];
         }
     }
 
+    /**
+     * Conteo por estado de justificación.
+     */
     public function countByJustificationStatus(User $user, ?string $status): int
     {
         return $this->em->getRepository(TimesRegister::class)
             ->count(['user' => $user, 'justificationStatus' => $status, 'status' => 1]);
     }
 
+    /**
+     * Justificación de un registro y creación de segmento extra asociado.
+     */
     public function justificationRegister(User $user, int $registerId, string $comment, int $type): array
     {
         $register = $this->em->getRepository(TimesRegister::class)->find($registerId);
@@ -211,8 +275,7 @@ class TimeRegisterManager
         $register->setComments($comment);
         $register->setJustificationStatus(JustificationStatus::COMPLETED);
 
-
-        // Crear el segmento extra relacionado
+        // Crear segmento extra relacionado
         $extraSegmentResponse = $this->userExtraSegmentService->createFromTimesRegister(
             $user,
             $register->getDate(),
@@ -230,14 +293,17 @@ class TimeRegisterManager
                 'message' => $extraSegmentResponse['message'],
                 'code' => $extraSegmentResponse['code'],
             ];
-        } else {
-            return [
-                'message' => $extraSegmentResponse['message'],
-                'code' => $extraSegmentResponse['code'],
-            ];
         }
+
+        return [
+            'message' => $extraSegmentResponse['message'],
+            'code' => $extraSegmentResponse['code'],
+        ];
     }
 
+    /**
+     * Comprueba si hay fichajes pendientes dentro del rango del horario laboral activo.
+     */
     private function hasPendingRegistersInScheduleRange(User $user, \DateTimeInterface $date): array
     {
         $entityWorkSchedule = $this->userWorkScheduleRepository->findActiveByUserAtDate($user, $date->format('Y-m-d'));
@@ -245,7 +311,8 @@ class TimeRegisterManager
             $startDate = $entityWorkSchedule->getStartDate();
             $endDate = $entityWorkSchedule->getEndDate();
 
-            $checkRegister = $this->timeRegisterRepository->findPendingRegistersByUserAndDateRange($user, $startDate, $endDate);
+            $checkRegister = $this->timeRegisterRepository
+                ->findPendingRegistersByUserAndDateRange($user, $startDate, $endDate);
 
             if ($checkRegister) {
                 return ['code' => 400, 'message' => 'Hay fichajes pendientes que necesitan justificación.', 'data' => $entityWorkSchedule->getId()];
@@ -255,6 +322,9 @@ class TimeRegisterManager
         return ['code' => 200, 'message' => 'No hay fichajes pendientes para el horario laboral.', 'data' => null];
     }
 
+    /**
+     * Recalcula total acumulado del día y total por slot.
+     */
     public function recalculateTimesForUserAndDate(User $user, \DateTimeInterface $date): void
     {
         $slots = $this->em->getRepository(TimesRegister::class)
@@ -263,19 +333,21 @@ class TimeRegisterManager
         $totalSeconds = 0;
 
         foreach ($slots as $slot) {
-            // 1. Calcular slot individual
             $start = $slot->getHourStart();
             $end = $slot->getHourEnd();
 
-            if (!$start || !$end) continue; // Ignorar slots abiertos
+            if (!$start || !$end) {
+                // Ignoramos slots abiertos
+                continue;
+            }
 
             $slotSeconds = $end->getTimestamp() - $start->getTimestamp();
             $totalSeconds += $slotSeconds;
 
-            // 2. Guardar total_slot_time
+            // Total del slot individual
             $slot->setTotalSlotTime($this->secondsToTimeString($slotSeconds));
 
-            // 3. Guardar total acumulado
+            // Total acumulado del día hasta este slot
             $slot->setTotalTime($this->secondsToTimeString($totalSeconds));
 
             $this->em->persist($slot);
@@ -284,11 +356,14 @@ class TimeRegisterManager
         $this->em->flush();
     }
 
+    /**
+     * Convierte segundos a "HH:MM:SS".
+     */
     private function secondsToTimeString(int $totalSeconds): string
     {
-        $hours = floor($totalSeconds / 3600);
-        $minutes = floor(($totalSeconds % 3600) / 60);
-        $seconds = $totalSeconds % 60;
+        $hours = (int) floor($totalSeconds / 3600);
+        $minutes = (int) floor(($totalSeconds % 3600) / 60);
+        $seconds = (int) ($totalSeconds % 60);
 
         return sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
     }
