@@ -1,20 +1,227 @@
-.login {width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding:0 20px; align-content: center; height: 100vh; background:url(images/general/bg-intranek.jpg) no-repeat cover #ddd;}
-.login * {color: #fff; font-size: 16px; line-height: 25px;}
-.loginBox {width: 100%; max-width: 400px; padding: 25px; text-align: center; border: 1px solid #ddd; border-radius: 20px; background: #f3f3f3;}
-.login #goback {position: absolute; top: 30px; left: 30px;}
-.login #goback i {font-size: 25px;}
-.login h1 { font-size:20px; text-align: center;}
-.login img {width: 150px; margin-bottom: 10px;}
-.login a:hover {color: #3a94cc !important; text-decoration: underline;}
-.login-form {display: flex; flex-direction: column; width: 100%; max-width: 420px; margin: 20px auto; justify-content: center; align-items: center; }
-.login-form input, .login-form select {flex-grow: 1; padding: 5px 12px; background: #fff; border: 2px solid rgba(255, 255, 255, 0.4); margin-top: 7px; border-radius: 5px; width: 100%;}
-.login-form select {color: rgba(255, 255, 255, 0.5); height: 45px;}
-.login-form input:focus, .login-form select:focus {outline: 0; background: transparent;}
-.login-form .checkbox {margin-top:10px; width: 100%; text-align: left;}
-.login-form .content-input input {width: inherit;}
-.login-form .boton {padding: 5px 12px; background: #3a94cc; color:#fff; border: none; border-radius: 5px; margin:20px auto; font-size: 20px; width: 100%;}
+/* ==========================================================================
+   Login (pantalla completa con imagen de fondo)
+   --------------------------------------------------------------------------
+   - Mantiene el diseño original pero corrige pequeñas inconsistencias CSS.
+   - Mejora contraste y accesibilidad (estados :focus visibles).
+   - Añade reglas responsivas para que no se solape nada en pantallas pequeñas.
+   - Incluye estilos de reserva (fallback) para el botón "Olvidar email guardado".
+   ========================================================================== */
 
-.register .login-form #labelLOPD {width: 100%; margin-top: 5px;}
-.register .login-form #checkLOPD {width: 5%; margin-right: 5px;}
-.register .login-form input::placeholder {color: rgba(255, 255, 255, 0.4);}
-.register .boton {padding: 5px 12px; background: #3a94cc; color:#fff; border: none; border-radius: 5px; margin-top: 5px; font-size: 20px; width: 100%; max-width: 420px;}
+.login {
+  /* Estructura base centrada */
+  width: 100%;
+  min-height: 100vh;                 /* en vez de height fija, mejor altura mínima */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+
+  /* Relleno lateral para pequeños dispositivos */
+  padding: 0 20px;
+
+  /* Fondo con imagen a pantalla completa (sintaxis correcta de cover) */
+  background-color: #ddd;            /* color de respaldo mientras carga la imagen */
+  background-image: url(images/general/bg-intranek.jpg);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+/* Tipografía base del bloque login (heredable) */
+.login * {
+  font-size: 16px;
+  line-height: 25px;
+  color: #fff;                       /* Mantiene estética original (texto claro) */
+}
+
+/* Contenedor de la tarjeta de login */
+.loginBox {
+  width: 100%;
+  max-width: 400px;
+  padding: 25px;
+  text-align: center;
+
+  /* Sutiles mejoras visuales */
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  background: rgba(243, 243, 243, 0.98); /* gris claro, casi opaco */
+  backdrop-filter: blur(2px);             /* suaviza el fondo si el navegador lo soporta */
+}
+
+/* Botón/Enlace para volver */
+.login #goback { position: absolute; top: 30px; left: 30px; }
+.login #goback i { font-size: 25px; }
+
+/* Encabezado y elementos básicos */
+.login h1 { font-size: 20px; text-align: center; }
+.login img { width: 150px; margin-bottom: 10px; }
+
+/* Enlaces: estado hover */
+.login a:hover {
+  color: #3a94cc !important;
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Formulario de login
+   -------------------------------------------------------------------------- */
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  margin: 20px auto;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Campos de entrada y selects
+   - Se fuerza el color de texto oscuro para contraste sobre fondo blanco.
+   - Se mejora foco accesible. */
+.login-form input,
+.login-form select {
+  width: 100%;
+  flex-grow: 1;
+  margin-top: 7px;
+  padding: 5px 12px;
+  background: #fff;
+  color: #222; /* asegura contraste con el fondo blanco del input */
+  border: 2px solid rgba(0, 0, 0, 0.10);
+  border-radius: 5px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Select: color de texto más legible */
+.login-form select {
+  color: #333;
+  height: 45px;
+}
+
+/* Estados de foco accesibles */
+.login-form input:focus,
+.login-form select:focus {
+  outline: 0;                        /* quitamos outline por defecto */
+  border-color: #3a94cc;             /* mejora feedback visual */
+  box-shadow: 0 0 0 3px rgba(58, 148, 204, 0.25);
+  background: #fff;                  /* mantiene fondo blanco en foco */
+}
+
+/* Checkbox y label */
+.login-form .checkbox {
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+}
+
+.login-form .content-input input {
+  width: inherit; /* evita que el checkbox se estire a 100% */
+}
+
+/* Botón principal de acción (Entrar) */
+.login-form .boton {
+  width: 100%;
+  margin: 20px auto;
+  padding: 5px 12px;
+  font-size: 20px;
+  background: #3a94cc;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Estado deshabilitado del botón */
+.login-form .boton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Enlace/Botón "Olvidar email guardado"
+   - En el JSX se usan clases Tailwind; estas reglas actúan como Fallback
+     si Tailwind no estuviera disponible o para afinar la UI.
+   - Para aplicarlas sin Tailwind, añade className="forget-email" al botón.
+   -------------------------------------------------------------------------- */
+.login-form .forget-email {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #3a94cc;
+  background: transparent;
+  border: none;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+.login-form .forget-email:hover,
+.login-form .forget-email:focus {
+  color: #2b78a4;
+  text-decoration: underline;
+}
+.login-form .forget-email:focus-visible {
+  outline: 2px solid #3a94cc;
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Mensajes y utilidades
+   -------------------------------------------------------------------------- */
+.textRed { color: #ffdddd; } /* texto de error sobre fondo claro dentro de la tarjeta */
+
+/* --------------------------------------------------------------------------
+   Zona de registro (pantallas de registro mantienen coherencia visual)
+   -------------------------------------------------------------------------- */
+.register .login-form #labelLOPD { width: 100%; margin-top: 5px; }
+.register .login-form #checkLOPD { width: 5%; margin-right: 5px; }
+.register .login-form input::placeholder { color: rgba(0, 0, 0, 0.35); } /* mejor contraste */
+.register .boton {
+  padding: 5px 12px;
+  background: #3a94cc;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  margin-top: 5px;
+  font-size: 20px;
+  width: 100%;
+  max-width: 420px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsividad
+   - Ajustes para que no haya solapamientos en pantallas pequeñas.
+   -------------------------------------------------------------------------- */
+@media (max-width: 420px) {
+  .loginBox {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  .login img {
+    width: 120px;
+    margin-bottom: 6px;
+  }
+  .login h1 {
+    font-size: 18px;
+  }
+  .login-form .boton {
+    font-size: 18px;
+    margin: 16px auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .login {
+    padding: 0 14px; /* más margen interno para que todo respire */
+  }
+  .loginBox {
+    padding: 16px;
+  }
+  .login h1 {
+    font-size: 17px;
+  }
+  .login-form input,
+  .login-form select {
+    font-size: 15px;
+    line-height: 22px;
+  }
+}
