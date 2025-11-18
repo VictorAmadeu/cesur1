@@ -1,35 +1,67 @@
 <head>
   <title>Intranek</title>
+
+  <!-- Codificación y modo de compatibilidad -->
   <meta charset="utf-8" />
   <meta http-equiv="x-ua-compatible" content="ie=edge" />
+
+  <!-- Viewport: evita zooms indeseados y permite notch (viewport-fit=cover) -->
   <meta
     name="viewport"
     content="width=device-width, height=device-height, viewport-fit=cover, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
   />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <link rel="icon" sizes="16x16 32x32" href="/images/general/favicon.png?v=2" />
 
-  <!-- Google Fonts -->
+  <!-- PWA: activa modo app en Android/Chrome -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- PWA iOS: activa modo app en iPhone/iPad -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <!-- Color del UI del navegador / barra de estado -->
+  <meta name="theme-color" content="#0A2A66" />
+
+  <!-- ICONOS / FAVICONES -->
+  <!-- Favicon .ico (compatibilidad amplia) -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <!-- Favicon PNG (fallback moderno) -->
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <!-- Icono iOS (lo copiaste como /public/apple-touch-icon-180.png) -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180.png">
+
+  <!-- Manifest PWA: referencia al archivo servido desde /public -->
+  <link rel="manifest" href="/manifest.webmanifest">
+
+  <!-- (OPCIONAL iOS) Estilo de la barra de estado al instalar como app -->
+  <!-- <meta name="apple-mobile-web-app-status-bar-style" content="default"> -->
+
+  <!-- Google Fonts: preconexiones para rendimiento -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- Assets locales (en public/) -->
+  <!-- CSS locales servidos desde /public -->
   <link rel="stylesheet" href="/admin/dist/css/adminlte.min.css" />
   <link rel="stylesheet" href="/trumbowyg/dist/ui/trumbowyg.min.css" />
 
-  <!-- Font Awesome online (opcional, o descargar en public/) -->
+  <!-- Font Awesome (kit online). Si en el futuro prefieres offline, ponlo en /public -->
   <script src="https://kit.fontawesome.com/abefcad7b2.js" crossorigin="anonymous"></script>
+
+  <!--
+    NOTA SOBRE SPLASH SCREENS iOS:
+    Generaste muchos JPG con pwa-asset-generator. Para usarlos:
+    1) Copia esos .jpg a /public/splash/ (por ejemplo).
+    2) Añade aquí los <link rel="apple-touch-startup-image" ...> que te imprimió la herramienta,
+       ajustando los href a /splash/archivo.jpg.
+    Esto es 100% opcional; no añadirlos evita roturas si aún no moviste los archivos.
+  -->
 </head>
 
 <body>
+  <!-- Punto de montaje de React/Meteor -->
   <div id="react-target"></div>
 
-  <!-- Scripts locales (en public/) -->
+  <!-- JS locales servidos desde /public -->
   <script src="/admin/plugins/jquery/jquery.min.js"></script>
   <script src="/admin/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="/trumbowyg/dist/trumbowyg.min.js"></script>
 
-  <!-- XLSX CDN -->
+  <!-- XLSX CDN (se conserva tal cual) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.full.min.js"></script>
 </body>
