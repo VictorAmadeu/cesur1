@@ -2,51 +2,84 @@
 
 namespace App\Controller\Admin;
 
+use App\Controller\Admin\AuxController; // 👈 Type-hint explícito para el autowire de $aux
 use App\Entity\User;
 use App\Entity\AssignedUser;
-use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
-use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\TextEditorField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
-use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
-use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
-
-use Symfony\Component\HttpFoundation\Response;
-use App\Service\FilterSelectionService;
+use App\Repository\CompaniesRepository;
+use App\Repository\OfficeRepository;
 use App\Repository\UserRepository;
-use Symfony\Bundle\SecurityBundle\Security;
-use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+use App\Service\FilterSelectionService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder;
-use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
-use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
-use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
-
-use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
-use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FieldCollection;
 use EasyCorp\Bundle\EasyAdminBundle\Collection\FilterCollection;
-use Symfony\Component\HttpFoundation\RequestStack;
-use App\Repository\CompaniesRepository;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
+use EasyCorp\Bundle\EasyAdminBundle\Config\KeyValueStore;
+use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
+use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
+use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntityPersistedEvent;
+use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
+use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
+use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
-use App\Repository\OfficeRepository;
+use Symfony\Component\HttpFoundation\RequestStack;
 
-class AssignedUserCrudController extends AbstractCrudController
+/**
+ * Controlador de asignaciones Supervisor ↔ Usuario en EasyAdmin.
+ * Cambios clave:
+ *  - Se quita la multiselección del campo 'user' para evitar 500 al persistir.
+ *  - Se tipa $aux (AuxController) para que el autowire funcione.
+ *  - Helper isSupervisor() compatible con getRole() / getRoles().
+ */
+class AssignedUserCrudController extends AbstractCrudController implements EventSubscriberInterface
 {
-    private $security, $adminUrlGenerator, $em, $aux, $entityManager, $filterSelectionService, $userRepository, $requestStack, $companiesRepository, $officeRepository;
+    /** @var Security */
+    private $security;
+    /** @var AdminUrlGenerator */
+    private $adminUrlGenerator;
+    /** @var EntityManagerInterface */
+    private $em;
+    /** @var AuxController */
+    private $aux;
+    /** @var EntityManagerInterface */
+    private $entityManager;
+    /** @var FilterSelectionService */
+    private $filterSelectionService;
+    /** @var UserRepository */
+    private $userRepository;
+    /** @var RequestStack */
+    private $requestStack;
+    /** @var CompaniesRepository */
+    private $companiesRepository;
+    /** @var OfficeRepository */
+    private $officeRepository;
 
-    public function __construct(Security $security, AdminUrlGenerator $adminUrlGenerator, EntityManagerInterface $em, AuxController $aux, EntityManagerInterface $entityManager, FilterSelectionService $filterSelectionService, UserRepository $userRepository, RequestStack $requestStack, CompaniesRepository $companiesRepository, OfficeRepository $officeRepository)
-    {
+    public function __construct(
+        Security $security,
+        AdminUrlGenerator $adminUrlGenerator,
+        EntityManagerInterface $em,
+        AuxController $aux, // 👈 aquí estaba el problema: faltaba el type-hint
+        EntityManagerInterface $entityManager,
+        FilterSelectionService $filterSelectionService,
+        UserRepository $userRepository,
+        RequestStack $requestStack,
+        CompaniesRepository $companiesRepository,
+        OfficeRepository $officeRepository
+    ) {
+        $this->security = $security;
         $this->adminUrlGenerator = $adminUrlGenerator;
         $this->em = $em;
         $this->aux = $aux;
         $this->entityManager = $entityManager;
         $this->filterSelectionService = $filterSelectionService;
         $this->userRepository = $userRepository;
-        $this->security = $security;
         $this->requestStack = $requestStack;
         $this->companiesRepository = $companiesRepository;
         $this->officeRepository = $officeRepository;
@@ -71,8 +104,9 @@ class AssignedUserCrudController extends AbstractCrudController
 
     public function configureActions(Actions $actions): Actions
     {
-        $user = $this->getUser();
-        $isSupervisor = $user && method_exists($user, 'getRole') && $user->getRole() === 'ROLE_SUPERVISOR';
+        /** @var User|null $currentUser */
+        $currentUser = $this->security->getUser();
+        $isSupervisor = $this->isSupervisor($currentUser);
 
         $actions = $actions
             ->remove(Crud::PAGE_NEW, Action::SAVE_AND_ADD_ANOTHER)
@@ -83,55 +117,55 @@ class AssignedUserCrudController extends AbstractCrudController
             });
 
         if (!$isSupervisor) {
+            // Botón "Nuevo" que respeta los filtros actuales (empresa/oficina/usuario y rango de fechas)
             $actions = $actions->update(Crud::PAGE_INDEX, Action::NEW, function (Action $action) {
                 $request = $this->requestStack->getCurrentRequest();
                 $com = $request->query->get('com');
                 $off = $request->query->get('off');
-                $us = $request->query->get('us');
-                // Obtener el primer y último día del mes actual
-                $startDate = new \DateTime('first day of this month');  // Primer día del mes
-                $endDate = new \DateTime('last day of this month');    // Último día del mes
-            
-                $startDateFormatted = $startDate->format('Y-m-d');
-                $endDateFormatted = $endDate->format('Y-m-d');
+                $us  = $request->query->get('us');
 
-                $start = $request->query->get('start', $startDateFormatted);
-                $end = $request->query->get('end', $endDateFormatted);
+                $startDefault = (new \DateTime('first day of this month'))->format('Y-m-d');
+                $endDefault   = (new \DateTime('last day of this month'))->format('Y-m-d');
+
+                $start = $request->query->get('start', $startDefault);
+                $end   = $request->query->get('end',   $endDefault);
 
                 $url = $this->adminUrlGenerator
                     ->setController(self::class)
                     ->setAction(Action::NEW)
                     ->set('com', $com)
                     ->set('off', $off)
-                    ->set('us', $us)
+                    ->set('us',  $us)
                     ->set('start', $start)
-                    ->set('end', $end)
+                    ->set('end',   $end)
                     ->generateUrl();
 
-                return $action
-                    ->setLabel('Asignar usuario')
-                    ->linkToUrl($url);
+                return $action->setLabel('Asignar usuario')->linkToUrl($url);
             });
         } else {
-            // Ocultar el botón NEW para supervisores
+            // Un supervisor no crea nuevas asignaciones desde index
             $actions = $actions->remove(Crud::PAGE_INDEX, Action::NEW);
         }
 
         return $actions;
     }
 
-
     public function configureFields(string $pageName): iterable
     {
-        $user = $this->security->getUser();
+        /** @var User|null $currentUser */
+        $currentUser = $this->security->getUser();
         $request = $this->requestStack->getCurrentRequest();
-        $com = $request->query->get('com', $user->getCompany()->getId());
-        $company = $this->companiesRepository->findOneBy(['id' => $com]);
-        $account = $company->getAccounts();
-        $us = $request->query->get('us');
-    
+
+        // Empresa desde query o la del usuario logueado
+        $com = $request->query->get('com', $currentUser ? $currentUser->getCompany()->getId() : null);
+        $company = $com ? $this->companiesRepository->findOneBy(['id' => $com]) : null;
+        $account = $company ? $company->getAccounts() : null;
+
+        $us = $request->query->get('us'); // id de usuario en el filtro “Usuario” de la cabecera (o 'all')
+
+        // Campo SUPERVISOR (con preselección si llega ?us=)
         if ($us && $us !== 'all') {
-            $supervisor = $this->userRepository->find($us); // Buscás el objeto User
+            $selectedUser = $this->userRepository->find($us);
 
             $supervisorField = AssociationField::new('supervisor', 'Supervisor')
                 ->setColumns(3)
@@ -139,50 +173,51 @@ class AssignedUserCrudController extends AbstractCrudController
                     return $er->createQueryBuilder('u')
                         ->where('u.company = :company')
                         ->andWhere('u.role = :role')
-                        ->setParameter('role', 'ROLE_SUPERVISOR')
                         ->setParameter('company', $com)
+                        ->setParameter('role', 'ROLE_SUPERVISOR')
                         ->orderBy('u.name', 'ASC');
                 })
-                ->setFormTypeOption('data', $supervisor);
+                ->setFormTypeOption('data', $selectedUser);
+
+            // ❗ SIN multiselección para evitar ArrayCollection en propiedad ManyToOne
             $userField = AssociationField::new('user', 'Usuario')
                 ->setColumns(3)
-                ->setFormTypeOptions(['multiple' => true])
-                ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account, $supervisor) {
-                    // Subquery para excluir los users ya asignados al supervisor
+                ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account, $selectedUser) {
+                    // Excluir usuarios ya asignados a ese supervisor
                     return $er->createQueryBuilder('u')
                         ->where('u.accounts = :account')
                         ->andWhere('u NOT IN (
                             SELECT IDENTITY(au.user) FROM App\Entity\AssignedUser au WHERE au.supervisor = :supervisor
                         )')
                         ->setParameter('account', $account)
-                        ->setParameter('supervisor', $supervisor)
+                        ->setParameter('supervisor', $selectedUser)
                         ->orderBy('u.name', 'ASC');
                 });
-        }else{
+        } else {
             $supervisorField = AssociationField::new('supervisor', 'Supervisor')
                 ->setColumns(3)
                 ->setFormTypeOption('query_builder', function (UserRepository $er) use ($com) {
                     return $er->createQueryBuilder('u')
                         ->where('u.company = :company')
                         ->andWhere('u.role = :role')
+                        ->setParameter('company', $com)
                         ->setParameter('role', 'ROLE_SUPERVISOR')
-                        ->setParameter('company', $com) // El id del usuario seleccionado
-                        ->orderBy('u.name', 'ASC'); // o 'u.name', según el campo que uses
+                        ->orderBy('u.name', 'ASC');
                 });
 
+            // ❗ SIN multiselección
             $userField = AssociationField::new('user', 'Usuario')
                 ->setColumns(3)
-                ->setFormTypeOptions(['multiple' => true])
                 ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account) {
                     return $er->createQueryBuilder('u')
                         ->where('u.accounts = :accounts')
-                        ->setParameter('accounts', $account) // El id del usuario seleccionado
-                        ->orderBy('u.name', 'ASC'); // o 'u.name', según el campo que uses
+                        ->setParameter('accounts', $account)
+                        ->orderBy('u.name', 'ASC');
                 });
         }
-    
+
         return [
-            IdField::new('id')->OnlyOnIndex(),
+            IdField::new('id')->onlyOnIndex(),
             TextField::new('supervisor.company.comercialName', 'Empresa del supervisor')->onlyOnIndex(),
             TextField::new('supervisor.office.name', 'Centro del supervisor')->onlyOnIndex(),
             $supervisorField,
@@ -199,62 +234,60 @@ class AssignedUserCrudController extends AbstractCrudController
 
     public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
     {
-        $user = $this->security->getUser();
+        /** @var User|null $currentUser */
+        $currentUser = $this->security->getUser();
         $request = $this->requestStack->getCurrentRequest();
 
-        $com = $request->query->get('com', $user->getCompany()->getId());
-        $us = $request->query->get('us', 'all');
+        $com = $request->query->get('com', $currentUser ? $currentUser->getCompany()->getId() : null);
+        $us  = $request->query->get('us', 'all');
         $off = $request->query->get('off', 'all');
 
-        $account = $user->getAccounts();
-        $company = $this->companiesRepository->findOneBy(['id' => $com]);
-        $companies = $this->companiesRepository->findBy(['accounts' => $account]);
+        $company   = $com ? $this->companiesRepository->findOneBy(['id' => $com]) : null;
+        $companies = $currentUser ? $this->companiesRepository->findBy(['accounts' => $currentUser->getAccounts()]) : [];
         $role = 'ROLE_SUPERVISOR';
 
-        $offices = $this->officeRepository->findBy(['company' => $company]);
+        $offices = $company ? $this->officeRepository->findBy(['company' => $company]) : [];
         $responseParameters->set('offices', $offices);
         $responseParameters->set('selectedOffice', $off);
 
-         // === SI ES SUPERVISOR ===
-        if ($user->getRole() === 'ROLE_SUPERVISOR') {
+        // Si el logueado es supervisor, limitamos a su contexto
+        if ($this->isSupervisor($currentUser)) {
             $responseParameters->set('companies', $companies);
             $responseParameters->set('selectedCompany', $company);
             return $responseParameters;
-        }else{
+        }
 
-        if($us === 'all'){          
-            $supervisor = $us;
-        }else{
-            $user = $this->userRepository->findOneBy(['id' => $us]);
-            $userRole = $user->getRole();
-            if($userRole === $role){
-                $supervisor = $user;
-            }else{
-                $supervisor = 'all';            
+        // Vista de administración
+        $selectedUser = $us;
+        if ($us !== 'all') {
+            $selectedUserEntity = $this->userRepository->findOneBy(['id' => $us]);
+            if ($selectedUserEntity instanceof User && $this->isSupervisor($selectedUserEntity)) {
+                $selectedUser = $selectedUserEntity;
+            } else {
+                $selectedUser = 'all';
             }
         }
 
-        
-        $supervisors = $this->userRepository->createQueryBuilder('u')
-            ->andWhere('u.role = :role') 
-            ->andWhere('u.company = :company')
-            ->setParameter('company', $company)
-            ->setParameter('role', $role)
-            ->orderBy('u.name', 'ASC') 
-            ->getQuery()
-            ->getResult();    
-        
+        $qb = $this->userRepository->createQueryBuilder('u')
+            ->andWhere('u.role = :role')
+            ->setParameter('role', $role);
+
+        if ($company) {
+            $qb->andWhere('u.company = :company')->setParameter('company', $company);
+        }
+
+        $supervisors = $qb->orderBy('u.name', 'ASC')->getQuery()->getResult();
+
         if (!$supervisors) {
             $responseParameters->set('errorMessage', 'Aún no se han asignado supervisores en esta compañía.');
         }
 
         $responseParameters->set('selectedCompany', $company);
         $responseParameters->set('companies', $companies);
-        $responseParameters->set('selectedUser', $supervisor);
+        $responseParameters->set('selectedUser', $selectedUser);
         $responseParameters->set('users', $supervisors);
 
         return $responseParameters;
-        }
     }
 
     public static function getSubscribedEvents(): array
@@ -267,140 +300,165 @@ class AssignedUserCrudController extends AbstractCrudController
     public function onAfterEntityPersisted(AfterEntityPersistedEvent $event): void
     {
         $entity = $event->getEntityInstance();
-        if (!$entity instanceof User) {
-            return;
+        if (!$entity instanceof AssignedUser) {
+            return; // Sólo actuamos cuando se persiste una asignación
         }
 
         $request = $this->requestStack->getCurrentRequest();
 
-        $com = $entity->getCompany()->getId();
-        $off = $request->query->get('off') ?? 'all';
-        $us =  $request->query->get('us') ?? 'all';
-        // Obtener el primer y último día del mes actual
-        $startDate = new \DateTime('first day of this month');  // Primer día del mes
-        $endDate = new \DateTime('last day of this month');    // Último día del mes
-            
-        $startDateFormatted = $startDate->format('Y-m-d');
-        $endDateFormatted = $endDate->format('Y-m-d');
+        // Recalcular la empresa desde el supervisor recién asignado
+        $com = $entity->getSupervisor() && $entity->getSupervisor()->getCompany()
+            ? $entity->getSupervisor()->getCompany()->getId()
+            : null;
 
-        $start = $request->query->get('start', $startDateFormatted);
-        $end = $request->query->get('end', $endDateFormatted);
+        $off = $request->query->get('off') ?? 'all';
+        $us  = $request->query->get('us')  ?? 'all';
+
+        $startDefault = (new \DateTime('first day of this month'))->format('Y-m-d');
+        $endDefault   = (new \DateTime('last day of this month'))->format('Y-m-d');
+
+        $start = $request->query->get('start', $startDefault);
+        $end   = $request->query->get('end',   $endDefault);
 
         $url = $this->adminUrlGenerator
             ->setController(self::class)
             ->setAction('index')
             ->set('com', $com)
-            ->set('us', $us)
+            ->set('us',  $us)
             ->set('off', $off)
             ->set('start', $start)
-            ->set('end', $end)
+            ->set('end',   $end)
             ->generateUrl();
 
         $response = new RedirectResponse($url);
-        $this->getContext()->getRequest()->getSession()->save(); 
+        $this->getContext()->getRequest()->getSession()->save();
         $response->send();
     }
 
-    public function createIndexQueryBuilder(SearchDto $searchDto, EntityDto $entityDto, FieldCollection $fields, FilterCollection $filters): QueryBuilder
-    {
+    public function createIndexQueryBuilder(
+        SearchDto $searchDto,
+        EntityDto $entityDto,
+        FieldCollection $fields,
+        FilterCollection $filters
+    ): QueryBuilder {
         $qb = parent::createIndexQueryBuilder($searchDto, $entityDto, $fields, $filters);
 
-        $user = $this->security->getUser();
+        /** @var User|null $currentUser */
+        $currentUser = $this->security->getUser();
         $request = $this->requestStack->getCurrentRequest();
 
         $com = $request->query->get('com');
-        $us = $request->query->get('us');
+        $us  = $request->query->get('us');
         $off = $request->query->get('off', 'all');
 
-        $company = $this->companiesRepository->find($com);
+        $company = $com ? $this->companiesRepository->find($com) : null;
         $role = 'ROLE_SUPERVISOR';
-        $account = $company ? $company->getAccounts() : null;
 
-        if ($user->getRole() === 'ROLE_SUPERVISOR') {
+        // Si quien mira es un supervisor: sólo sus asignaciones
+        if ($this->isSupervisor($currentUser)) {
             $qb->andWhere('entity.supervisor = :selectedUser')
-                ->andWhere('entity.user != :currentUser')
-                ->setParameter('currentUser', $user)
-                ->setParameter('selectedUser', $user);
+               ->andWhere('entity.user != :currentUser')
+               ->setParameter('selectedUser', $currentUser)
+               ->setParameter('currentUser', $currentUser);
 
-            // Filtro por empresa del usuario supervisado
             if ($company) {
                 $qb->innerJoin('entity.user', 'u_company')
                    ->andWhere('u_company.company = :selectedCompany')
                    ->setParameter('selectedCompany', $company);
             }
-            // Filtro por oficina del usuario supervisado
             if ($off && $off !== 'all') {
                 $qb->innerJoin('entity.user', 'u_office')
                    ->andWhere('u_office.office = :selectedOffice')
                    ->setParameter('selectedOffice', $off);
             }
             return $qb;
-        }else{
+        }
 
-            if ($us !== 'all') {
-                $user = $this->userRepository->findOneBy(['id' => $us]);
-                $userRole = $user->getRole();
-                if($userRole === $role){
-                    $qb->innerJoin('entity.user', 'u')
-                        ->andWhere('entity.supervisor = :selectedUser')
-                        ->andWhere('entity.user != :currentUser')
-                        ->setParameter('currentUser', $user)
-                        ->setParameter('selectedUser', $user);
-                    if ($off && $off !== 'all') {
-                        $qb->innerJoin('entity.supervisor', 's_office')
-                           ->andWhere('s_office.office = :selectedOffice')
-                           ->setParameter('selectedOffice', $off);
-                    }
-                }else{
-                    $supervisors = $this->userRepository->createQueryBuilder('u')
-                        ->innerJoin('u.role', 'r')
-                        ->andWhere('u.company = :company')
-                        ->andWhere('r = :role')
-                        ->setParameter('company', $company)
-                        ->setParameter('role', $role)
-                        ->getQuery()
-                        ->getResult();
-    
-                if (empty($supervisors)) {
-                    return $qb->andWhere('1 = 0');
-                }
-    
+        // Vista de administración con filtros
+        if ($us !== 'all') {
+            $selectedUserEntity = $this->userRepository->findOneBy(['id' => $us]);
+            if ($selectedUserEntity instanceof User && $this->isSupervisor($selectedUserEntity)) {
                 $qb->innerJoin('entity.user', 'u')
-                    ->andWhere('entity.supervisor IN (:supervisors)')
-                    ->andWhere('entity.supervisor != entity.user')
-                    ->setParameter('supervisors', $supervisors);
+                   ->andWhere('entity.supervisor = :selectedUser')
+                   ->andWhere('entity.user != :currentUser')
+                   ->setParameter('selectedUser', $selectedUserEntity)
+                   ->setParameter('currentUser',  $selectedUserEntity);
+
                 if ($off && $off !== 'all') {
                     $qb->innerJoin('entity.supervisor', 's_office')
                        ->andWhere('s_office.office = :selectedOffice')
                        ->setParameter('selectedOffice', $off);
                 }
-                }
             } else {
-                $supervisors = $this->userRepository->createQueryBuilder('u')
-                    ->andWhere('u.company = :company')
+                // 'us' no es supervisor → listamos asignaciones de todos los supervisores de la empresa
+                $supervisorsQB = $this->userRepository->createQueryBuilder('u')
                     ->andWhere('u.role = :role')
-                    ->setParameter('company', $company)
-                    ->setParameter('role', $role)
-                    ->getQuery()
-                    ->getResult();
-    
-                if (empty($supervisors)) {
+                    ->setParameter('role', $role);
+
+                if ($company) {
+                    $supervisorsQB->andWhere('u.company = :company')->setParameter('company', $company);
+                }
+
+                $list = $supervisorsQB->getQuery()->getResult();
+                if (empty($list)) {
                     return $qb->andWhere('1 = 0');
                 }
-    
+
                 $qb->innerJoin('entity.user', 'u')
-                    ->andWhere('entity.supervisor IN (:supervisors)')
-                    ->andWhere('entity.supervisor != entity.user')
-                    ->setParameter('supervisors', $supervisors);
+                   ->andWhere('entity.supervisor IN (:supervisors)')
+                   ->andWhere('entity.supervisor != entity.user')
+                   ->setParameter('supervisors', $list);
+
                 if ($off && $off !== 'all') {
                     $qb->innerJoin('entity.supervisor', 's_office')
                        ->andWhere('s_office.office = :selectedOffice')
                        ->setParameter('selectedOffice', $off);
                 }
             }
-    
-            return $qb;
+        } else {
+            // 'us' == all → asignaciones de todos los supervisores (opcionalmente filtradas)
+            $supervisorsQB = $this->userRepository->createQueryBuilder('u')
+                ->andWhere('u.role = :role')
+                ->setParameter('role', $role);
+
+            if ($company) {
+                $supervisorsQB->andWhere('u.company = :company')->setParameter('company', $company);
+            }
+
+            $list = $supervisorsQB->getQuery()->getResult();
+            if (empty($list)) {
+                return $qb->andWhere('1 = 0');
+            }
+
+            $qb->innerJoin('entity.user', 'u')
+               ->andWhere('entity.supervisor IN (:supervisors)')
+               ->andWhere('entity.supervisor != entity.user')
+               ->setParameter('supervisors', $list);
+
+            if ($off && $off !== 'all') {
+                $qb->innerJoin('entity.supervisor', 's_office')
+                   ->andWhere('s_office.office = :selectedOffice')
+                   ->setParameter('selectedOffice', $off);
+            }
         }
+
+        return $qb;
     }
 
+    /**
+     * Comprueba si un usuario es supervisor, tolerando getRole() (string) o getRoles() (array).
+     */
+    private function isSupervisor(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+        if (method_exists($user, 'getRole')) {
+            return $user->getRole() === 'ROLE_SUPERVISOR';
+        }
+        if (method_exists($user, 'getRoles')) {
+            return in_array('ROLE_SUPERVISOR', (array) $user->getRoles(), true);
+        }
+        return false;
+    }
 }
