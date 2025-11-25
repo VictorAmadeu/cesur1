@@ -7,21 +7,19 @@ use Doctrine\Common\Collections\Collection;
 use App\Repository\LicenseRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-
-// 🎯 NUEVO: validación de Symfony para el callback de fechas/horas
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * Entidad de Licencias/Ausencias.
- * - Se añade validación de dominio para evitar intervalos incoherentes (mismo día con hora fin < hora inicio).
- * - Se reescribe updateDays() con DateTimeImmutable + DatePeriod para evitar el warning "Undefined method modify".
+ *
+ * Incluye:
+ * - Cálculo automático de días laborables entre fecha de inicio y fin.
+ * - Validación de coherencia entre fechas y horas.
+ * - Relación con documentos adjuntos.
  */
-
-// 👉 NUEVO: habilita los lifecycle callbacks (prePersist, preUpdate) si no estaban funcionando.
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Entity(repositoryClass: LicenseRepository::class)]
-// 👉 NUEVO: callback de validación a nivel de clase (Symfony)
 #[Assert\Callback('validateDates')]
 class License
 {
@@ -48,18 +46,21 @@ class License
 
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $dateStart = null;
-    
+
     #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $dateEnd = null;
-    
+
     #[ORM\Column(type: Types::TIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $timeStart = null;
-    
-    #[ORM\Column(type: Types::TIME_MUTABLE, nullable: true)]
-    private ?\DateTimeInterface $timeEnd = null;    
 
+    #[ORM\Column(type: Types::TIME_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $timeEnd = null;
+
+    /**
+     * 0 = En proceso, 1 = Aprobada, 2 = Desaprobada
+     */
     #[ORM\Column(type: Types::INTEGER, options: ["default" => 0])]
-    private ?int $status = 0; // 0 = En Proceso, 1 = Aprobada, 2 = Desaprobada
+    private ?int $status = 0;
 
     #[ORM\Column]
     private ?bool $isActive = true;
@@ -67,8 +68,11 @@ class License
     #[ORM\Column(type: Types::INTEGER, options: ["default" => 0])]
     private ?int $extraSegment = 0;
 
+    /**
+     * Documentos asociados a la licencia (justificantes, etc.).
+     */
     #[ORM\OneToMany(mappedBy: 'license', targetEntity: Document::class, cascade: ['remove'], orphanRemoval: true)]
-    private Collection $documents;  
+    private Collection $documents;
 
     public function __construct()
     {
@@ -76,7 +80,7 @@ class License
     }
 
     // -----------------------------
-    // Getters / Setters autogenerados
+    // Getters / Setters principales
     // -----------------------------
 
     public function getId(): ?int
@@ -129,24 +133,24 @@ class License
     }
 
     /**
-     * 🔁 Recalcula $days contando solo días laborables (L-V).
-     * Reescrito usando DateTimeImmutable + DatePeriod para evitar el warning de Intelephense.
+     * Recalcula la propiedad $days contando solo días laborables (lunes a viernes)
+     * entre dateStart y dateEnd (intervalo inclusivo).
      */
     public function updateDays(): void
     {
         if ($this->dateStart && $this->dateEnd) {
-            // Normalizamos a DateTimeImmutable para poder usar modify() sin warnings
+            // Usamos DateTimeImmutable para trabajar de forma segura con modify()
             $start = \DateTimeImmutable::createFromInterface($this->dateStart);
             $end   = \DateTimeImmutable::createFromInterface($this->dateEnd);
 
-            // Periodo inclusivo: hasta $end (por eso sumamos +1 día en el límite)
+            // Periodo inclusivo: sumamos +1 día al límite
             $endInclusive = $end->modify('+1 day');
             $period = new \DatePeriod($start, new \DateInterval('P1D'), $endInclusive);
 
             $days = 0;
             foreach ($period as $d) {
-                $dayOfWeek = (int) $d->format('N'); // 1 (Lunes) ... 7 (Domingo)
-                if ($dayOfWeek < 6) { // Solo lunes a viernes
+                $dayOfWeek = (int) $d->format('N'); // 1 (lunes) ... 7 (domingo)
+                if ($dayOfWeek < 6) {
                     $days++;
                 }
             }
@@ -155,6 +159,9 @@ class License
         }
     }
 
+    /**
+     * Devuelve la fecha/hora de inicio en formato amigable para mostrar en vistas.
+     */
     public function getFechaHoraInicio(): ?string
     {
         if ($this->dateStart && $this->timeStart) {
@@ -165,6 +172,9 @@ class License
         return null;
     }
 
+    /**
+     * Devuelve la fecha/hora de fin en formato amigable para mostrar en vistas.
+     */
     public function getFechaHoraFin(): ?string
     {
         if ($this->dateEnd && $this->timeEnd) {
@@ -175,13 +185,18 @@ class License
         return null;
     }
 
-    // ⚙️ Mantengo tus lifecycle hooks (y activo la clase con #[ORM\HasLifecycleCallbacks] arriba)
+    /**
+     * Lifecycle hook de Doctrine: antes de insertar, recalculamos los días.
+     */
     #[ORM\PrePersist]
     public function prePersist(): void
     {
         $this->updateDays();
     }
 
+    /**
+     * Lifecycle hook de Doctrine: antes de actualizar, recalculamos los días.
+     */
     #[ORM\PreUpdate]
     public function preUpdate(): void
     {
@@ -192,7 +207,7 @@ class License
     {
         return $this->dateStart;
     }
-    
+
     public function setDateStart(\DateTimeInterface $dateStart): static
     {
         $this->dateStart = $dateStart;
@@ -278,6 +293,9 @@ class License
         return $this;
     }
 
+    /**
+     * Colección de documentos asociados a la licencia.
+     */
     public function getDocuments(): Collection
     {
         return $this->documents;
@@ -302,9 +320,14 @@ class License
         return $this;
     }
 
-    public function toArray(): array
+    /**
+     * Convierte la licencia en array.
+     *
+     * @param bool $withDocuments Si es true, añade también un array de documentos asociados.
+     */
+    public function toArray(bool $withDocuments = false): array
     {
-        return [
+        $base = [
             'id' => $this->id,
             'comments' => $this->comments,
             'type' => $this->type,
@@ -317,19 +340,31 @@ class License
             'isActive' => $this->isActive,
             'extraSegment' => $this->extraSegment,
         ];
+
+        if ($withDocuments) {
+            $base['documents'] = array_map(function (Document $d) {
+                return [
+                    'id' => $d->getId(),
+                    'name' => $d->getName(),
+                    'url' => $d->getUrl(),
+                    'createdAt' => $d->getCreatedAt()?->format('Y-m-d H:i:s'),
+                    'uploadedBy' => $d->getUser()->getEmail(),
+                ];
+            }, $this->documents->toArray());
+        }
+
+        return $base;
     }
 
-    // -------------------------------------------
-    // ✅ NUEVO: Validación de dominio (Symfony)
-    // -------------------------------------------
     /**
-     * Si la ausencia empieza y termina el mismo día y la hora de fin es
-     * anterior a la hora de inicio, generamos un error de validación.
-     * Evita el 500 al aprobar al frenar datos incoherentes.
+     * Validación de dominio:
+     * si la ausencia empieza y termina el mismo día y la hora de fin
+     * es anterior a la hora de inicio, se añade una violación de validación.
      */
     public function validateDates(ExecutionContextInterface $context): void
     {
-        if ($this->dateStart instanceof \DateTimeInterface &&
+        if (
+            $this->dateStart instanceof \DateTimeInterface &&
             $this->dateEnd instanceof \DateTimeInterface &&
             $this->timeStart instanceof \DateTimeInterface &&
             $this->timeEnd instanceof \DateTimeInterface
@@ -339,12 +374,9 @@ class License
             $endVal   = (int) $this->timeEnd->format('His');
 
             if ($sameDay && $endVal < $startVal) {
-                $context->buildViolation(
-                    'La hora de fin no puede ser anterior a la hora de inicio en el mismo día. ' .
-                    'Si la ausencia cruza la medianoche, establezca la fecha de finalización al día siguiente o ajuste la hora de fin.'
-                )
-                ->atPath('timeEnd')
-                ->addViolation();
+                $context->buildViolation('La hora fin no puede ser anterior a la hora inicio.')
+                    ->atPath('timeEnd')
+                    ->addViolation();
             }
         }
     }

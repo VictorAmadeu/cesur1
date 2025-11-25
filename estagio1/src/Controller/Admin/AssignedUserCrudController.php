@@ -2,7 +2,7 @@
 
 namespace App\Controller\Admin;
 
-use App\Controller\Admin\AuxController; // 👈 Type-hint explícito para el autowire de $aux
+use App\Controller\Admin\AuxController;
 use App\Entity\User;
 use App\Entity\AssignedUser;
 use App\Repository\CompaniesRepository;
@@ -22,6 +22,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractCrudController;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\EntityDto;
 use EasyCorp\Bundle\EasyAdminBundle\Dto\SearchDto;
 use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntityPersistedEvent;
+use EasyCorp\Bundle\EasyAdminBundle\Event\AfterEntityUpdatedEvent;
 use EasyCorp\Bundle\EasyAdminBundle\Field\AssociationField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\IdField;
 use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
@@ -33,10 +34,12 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Controlador de asignaciones Supervisor ↔ Usuario en EasyAdmin.
- * Cambios clave:
- *  - Se quita la multiselección del campo 'user' para evitar 500 al persistir.
- *  - Se tipa $aux (AuxController) para que el autowire funcione.
- *  - Helper isSupervisor() compatible con getRole() / getRoles().
+ *
+ * Responsabilidades:
+ *  - Listar las relaciones supervisor/usuario con filtros por empresa, centro y supervisor.
+ *  - Permitir crear NUEVAS asignaciones.
+ *  - Permitir EDITAR una asignación ya existente (re-asignar supervisor/usuario).
+ *  - Tras crear/editar, volver al listado respetando los filtros activos.
  */
 class AssignedUserCrudController extends AbstractCrudController implements EventSubscriberInterface
 {
@@ -61,11 +64,14 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
     /** @var OfficeRepository */
     private $officeRepository;
 
+    /**
+     * Inyección de dependencias necesarias para filtros, seguridad y redirecciones.
+     */
     public function __construct(
         Security $security,
         AdminUrlGenerator $adminUrlGenerator,
         EntityManagerInterface $em,
-        AuxController $aux, // 👈 aquí estaba el problema: faltaba el type-hint
+        AuxController $aux,
         EntityManagerInterface $entityManager,
         FilterSelectionService $filterSelectionService,
         UserRepository $userRepository,
@@ -85,23 +91,33 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         $this->officeRepository = $officeRepository;
     }
 
+    /**
+     * Entidad gestionada por este CRUD.
+     */
     public static function getEntityFqcn(): string
     {
         return AssignedUser::class;
     }
 
+    /**
+     * Configuración general de EasyAdmin para esta pantalla.
+     */
     public function configureCrud(Crud $crud): Crud
     {
         return $crud
             ->setPaginatorPageSize(25)
             ->setPageTitle('index', 'Supervisores')
             ->setPageTitle('new', 'Asignar Supervisor')
+            ->setPageTitle('edit', 'Editar relación Supervisor ↔ Usuario')
             ->setEntityLabelInSingular('Supervisor')
             ->setEntityLabelInPlural('Supervisores')
             ->showEntityActionsInlined()
             ->overrideTemplate('crud/index', 'admin/assignedUser/custom_index.html.twig');
     }
 
+    /**
+     * Configura las acciones disponibles (Nuevo, Editar, Borrar) según el rol.
+     */
     public function configureActions(Actions $actions): Actions
     {
         /** @var User|null $currentUser */
@@ -109,15 +125,29 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         $isSupervisor = $this->isSupervisor($currentUser);
 
         $actions = $actions
+            // No mostrar "Guardar y añadir otro" en formularios
             ->remove(Crud::PAGE_NEW, Action::SAVE_AND_ADD_ANOTHER)
             ->remove(Crud::PAGE_EDIT, Action::SAVE_AND_CONTINUE)
-            ->remove(Crud::PAGE_INDEX, Action::EDIT)
+            // Personalizar icono de borrar
             ->update(Crud::PAGE_INDEX, Action::DELETE, function (Action $action) {
                 return $action->setIcon('fa fa-trash')->setLabel(false);
+            })
+            // Habilitar acción Editar en el listado (antes estaba eliminada)
+            ->update(Crud::PAGE_INDEX, Action::EDIT, function (Action $action) use ($isSupervisor) {
+                // Los supervisores solo pueden editar SUS propias asignaciones.
+                // Un administrador puede editar cualquier asignación.
+                if ($isSupervisor) {
+                    return $action->displayIf(function (AssignedUser $entity) {
+                        return $entity->getSupervisor() === $this->security->getUser();
+                    });
+                }
+
+                return $action;
             });
 
         if (!$isSupervisor) {
-            // Botón "Nuevo" que respeta los filtros actuales (empresa/oficina/usuario y rango de fechas)
+            // Botón "Nuevo" visible sólo para administración (no para supervisores),
+            // respetando los filtros actuales (empresa/oficina/usuario y rango de fechas).
             $actions = $actions->update(Crud::PAGE_INDEX, Action::NEW, function (Action $action) {
                 $request = $this->requestStack->getCurrentRequest();
                 $com = $request->query->get('com');
@@ -150,20 +180,31 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         return $actions;
     }
 
+    /**
+     * Define los campos que se muestran/usan en formularios y listado.
+     *
+     * Punto clave: cuando estamos en EDICIÓN, el campo Usuario debe seguir mostrando
+     * al usuario ya asignado aunque normalmente lo excluiríamos para evitar duplicados.
+     */
     public function configureFields(string $pageName): iterable
     {
         /** @var User|null $currentUser */
         $currentUser = $this->security->getUser();
         $request = $this->requestStack->getCurrentRequest();
 
-        // Empresa desde query o la del usuario logueado
+        // Empresa seleccionada (o la del usuario logueado por defecto)
         $com = $request->query->get('com', $currentUser ? $currentUser->getCompany()->getId() : null);
         $company = $com ? $this->companiesRepository->findOneBy(['id' => $com]) : null;
         $account = $company ? $company->getAccounts() : null;
 
-        $us = $request->query->get('us'); // id de usuario en el filtro “Usuario” de la cabecera (o 'all')
+        // Filtro superior "Usuario" (id de supervisor o 'all')
+        $us = $request->query->get('us');
 
-        // Campo SUPERVISOR (con preselección si llega ?us=)
+        // Si estamos editando, obtenemos la entidad actual para poder tratarla de forma especial
+        /** @var AssignedUser|null $editingEntity */
+        $editingEntity = Crud::PAGE_EDIT === $pageName ? $this->getContext()?->getEntity()->getInstance() : null;
+
+        // ----- Campo SUPERVISOR -----
         if ($us && $us !== 'all') {
             $selectedUser = $this->userRepository->find($us);
 
@@ -177,23 +218,36 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
                         ->setParameter('role', 'ROLE_SUPERVISOR')
                         ->orderBy('u.name', 'ASC');
                 })
+                // Preselecciona el supervisor si viene filtrado en la cabecera
                 ->setFormTypeOption('data', $selectedUser);
 
-            // ❗ SIN multiselección para evitar ArrayCollection en propiedad ManyToOne
+            // ----- Campo USUARIO cuando hay un supervisor filtrado -----
             $userField = AssociationField::new('user', 'Usuario')
                 ->setColumns(3)
-                ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account, $selectedUser) {
-                    // Excluir usuarios ya asignados a ese supervisor
-                    return $er->createQueryBuilder('u')
+                ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account, $selectedUser, $editingEntity) {
+                    $qb = $er->createQueryBuilder('u')
                         ->where('u.accounts = :account')
-                        ->andWhere('u NOT IN (
-                            SELECT IDENTITY(au.user) FROM App\Entity\AssignedUser au WHERE au.supervisor = :supervisor
-                        )')
                         ->setParameter('account', $account)
-                        ->setParameter('supervisor', $selectedUser)
                         ->orderBy('u.name', 'ASC');
+
+                    // 🔹 Alta NUEVA: excluir usuarios ya asignados a ese supervisor
+                    if (!$editingEntity instanceof AssignedUser) {
+                        $qb->andWhere('u NOT IN (
+                            SELECT IDENTITY(au.user)
+                            FROM App\Entity\AssignedUser au
+                            WHERE au.supervisor = :supervisor
+                        )')
+                        ->setParameter('supervisor', $selectedUser);
+                    }
+                    // 🔹 EDICIÓN: no aplicamos el filtro de exclusión,
+                    // para que el usuario actualmente asignado siga apareciendo en el combo.
+                    // La UniqueEntity de AssignedUser se encargará de evitar duplicados al guardar.
+
+                    return $qb;
                 });
         } else {
+            // Sin filtro específico de supervisor en cabecera
+
             $supervisorField = AssociationField::new('supervisor', 'Supervisor')
                 ->setColumns(3)
                 ->setFormTypeOption('query_builder', function (UserRepository $er) use ($com) {
@@ -205,7 +259,8 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
                         ->orderBy('u.name', 'ASC');
                 });
 
-            // ❗ SIN multiselección
+            // Campo USUARIO genérico: todos los usuarios de la cuenta (la UniqueEntity
+            // y la lógica de negocio evitan que se creen duplicados indebidos).
             $userField = AssociationField::new('user', 'Usuario')
                 ->setColumns(3)
                 ->setFormTypeOption('query_builder', function (UserRepository $er) use ($account) {
@@ -227,11 +282,18 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         ];
     }
 
+    /**
+     * Persistencia estándar de EasyAdmin.
+     * (Se mantiene tal cual para no alterar el flujo por defecto).
+     */
     public function persistEntity(EntityManagerInterface $entityManager, $entityInstance): void
     {
         parent::persistEntity($entityManager, $entityInstance);
     }
 
+    /**
+     * Envía variables extra a la plantilla de EasyAdmin (filtros, listas, etc.).
+     */
     public function configureResponseParameters(KeyValueStore $responseParameters): KeyValueStore
     {
         /** @var User|null $currentUser */
@@ -246,18 +308,19 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         $companies = $currentUser ? $this->companiesRepository->findBy(['accounts' => $currentUser->getAccounts()]) : [];
         $role = 'ROLE_SUPERVISOR';
 
+        // Lista de centros/oficinas para el filtro
         $offices = $company ? $this->officeRepository->findBy(['company' => $company]) : [];
         $responseParameters->set('offices', $offices);
         $responseParameters->set('selectedOffice', $off);
 
-        // Si el logueado es supervisor, limitamos a su contexto
+        // Si el logueado es supervisor, limitamos su contexto y devolvemos pronto
         if ($this->isSupervisor($currentUser)) {
             $responseParameters->set('companies', $companies);
             $responseParameters->set('selectedCompany', $company);
             return $responseParameters;
         }
 
-        // Vista de administración
+        // Vista de administración (selección de supervisores)
         $selectedUser = $us;
         if ($us !== 'all') {
             $selectedUserEntity = $this->userRepository->findOneBy(['id' => $us]);
@@ -290,18 +353,27 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         return $responseParameters;
     }
 
+    /**
+     * Eventos de EasyAdmin a los que se suscribe este controlador.
+     * Queremos actuar tanto al CREAR como al EDITAR para redirigir al listado.
+     */
     public static function getSubscribedEvents(): array
     {
         return [
-            AfterEntityPersistedEvent::class => ['onAfterEntityPersisted'],
+            AfterEntityPersistedEvent::class => ['onAfterEntityStored'],
+            AfterEntityUpdatedEvent::class   => ['onAfterEntityStored'],
         ];
     }
 
-    public function onAfterEntityPersisted(AfterEntityPersistedEvent $event): void
+    /**
+     * Tras crear o editar una relación, redirige al listado respetando filtros.
+     */
+    public function onAfterEntityStored($event): void
     {
         $entity = $event->getEntityInstance();
         if (!$entity instanceof AssignedUser) {
-            return; // Sólo actuamos cuando se persiste una asignación
+            // Solo actuamos cuando la entidad es AssignedUser
+            return;
         }
 
         $request = $this->requestStack->getCurrentRequest();
@@ -331,10 +403,15 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
             ->generateUrl();
 
         $response = new RedirectResponse($url);
+        // Guardamos la sesión antes de enviar la redirección para evitar pérdida de datos
         $this->getContext()->getRequest()->getSession()->save();
         $response->send();
     }
 
+    /**
+     * Construye el QueryBuilder para el listado de asignaciones,
+     * respetando filtros de empresa, oficina y supervisor.
+     */
     public function createIndexQueryBuilder(
         SearchDto $searchDto,
         EntityDto $entityDto,
@@ -354,7 +431,7 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
         $company = $com ? $this->companiesRepository->find($com) : null;
         $role = 'ROLE_SUPERVISOR';
 
-        // Si quien mira es un supervisor: sólo sus asignaciones
+        // Si quien mira es un supervisor: solo sus asignaciones (no se ve a sí mismo como supervisado)
         if ($this->isSupervisor($currentUser)) {
             $qb->andWhere('entity.supervisor = :selectedUser')
                ->andWhere('entity.user != :currentUser')
@@ -374,7 +451,7 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
             return $qb;
         }
 
-        // Vista de administración con filtros
+        // Vista de administración con filtro de supervisor
         if ($us !== 'all') {
             $selectedUserEntity = $this->userRepository->findOneBy(['id' => $us]);
             if ($selectedUserEntity instanceof User && $this->isSupervisor($selectedUserEntity)) {
@@ -446,7 +523,7 @@ class AssignedUserCrudController extends AbstractCrudController implements Event
     }
 
     /**
-     * Comprueba si un usuario es supervisor, tolerando getRole() (string) o getRoles() (array).
+     * Comprueba si un usuario tiene rol de supervisor (compatible con getRole/getRoles).
      */
     private function isSupervisor(?User $user): bool
     {
