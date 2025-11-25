@@ -1,15 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { toast } from 'react-toastify';
-import LicenseService from '/imports/service/licenseService';
-import InputFile from './InputFile';
+import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import LicenseService from "/imports/service/licenseService";
+import InputFile from "./InputFile";
 
+/**
+ * Formulario de edición de una ausencia ya existente.
+ * Permite modificar fechas, comentarios y adjuntar documentos.
+ */
 export const Formulario = ({ license, onClose, onUpdate }) => {
+  // Estado del envío del formulario de edición
   const [loadingEditSubmit, setLoadingEditSubmit] = useState(false);
+  // Archivos nuevos seleccionados desde el input (codificados en base64 por InputFile)
   const [fileToUpload, setFileToUpload] = useState([]);
+  // Archivos ya existentes que vienen del backend
   const [filesBack, setFilesBack] = useState([]);
+  // Flag de carga de listado de archivos
   const [loadingFile, setLoadingFile] = useState(true);
+  // Flag para bloquear campos de fecha/hora si el estado no es “en proceso”
   const [checkStatus, setCheckStatus] = useState(false);
 
+  // Al montar el componente, se determina si se bloquean fechas
+  // y se cargan los archivos existentes.
   useEffect(() => {
     if (license.status !== 0) {
       setCheckStatus(true);
@@ -17,69 +28,93 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
       setCheckStatus(false);
     }
     getFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * Obtiene del backend los documentos asociados a la licencia.
+   */
   const getFiles = async () => {
     try {
       const req = await LicenseService.getOne({
-        id: license.id
+        id: license.id,
       });
-      setFilesBack(req.documents ?? 404);
+      // Si no hay documentos, usamos array vacío para evitar problemas con .length
+      setFilesBack(req.documents ?? []);
     } catch (e) {
       console.log(e);
     } finally {
       setLoadingFile(false);
     }
   };
+
+  /**
+   * Maneja el envío del formulario de edición.
+   * Construye el payload y llama a LicenseService.edit.
+   */
   const handleFormEditSubmit = async (event) => {
     event.preventDefault();
     setLoadingEditSubmit(true);
 
     const formData = new FormData(event.target);
-    const typeId = parseInt(formData.get('type'));
-    const comments = formData.get('comments');
-    let dateStart = formData.get('dateStartDate');
-    let dateEnd = formData.get('dateEndDate');
-    let timeStart = formData.get('dateStartTime');
-    let timeEnd = formData.get('dateEndTime');
 
-    const filesToSend = fileToUpload ? [fileToUpload] : [];
-    formData.append('files', filesToSend);
+    // 🔧 FIX 1: convertimos explícitamente a string para evitar el error de TypeScript
+    const typeId = parseInt(String(formData.get("type")), 10);
+
+    const comments = formData.get("comments");
+    const dateStart = formData.get("dateStartDate");
+    const dateEnd = formData.get("dateEndDate");
+    const timeStart = formData.get("dateStartTime");
+    const timeEnd = formData.get("dateEndTime");
+
+    // Archivos a enviar al backend:
+    // si hay archivos seleccionados, se envían como [fileToUpload], si no, array vacío.
+    const filesToSend = fileToUpload && fileToUpload.length ? [fileToUpload] : [];
+
+    // 🔧 FIX 2: eliminamos el append al FormData, porque enviamos JSON (no multipart)
+    // formData.append("files", filesToSend);  // ⟵ Esto provocaba el error de tipos
 
     try {
       const r = await LicenseService.edit({
         id: license.id,
         typeId: typeId,
-        comments: comments || '',
+        comments: comments || "",
         dateStart: dateStart,
         dateEnd: dateEnd,
         timeStart: timeStart,
         timeEnd: timeEnd,
-        files: filesToSend
+        files: filesToSend,
       });
 
       if (r.code === 200) {
-        toast.success(`${r.message}`, { position: 'top-center' });
+        toast.success(`${r.message}`, { position: "top-center" });
       } else {
-        toast.error(`${r.message}`, { position: 'top-center' });
+        toast.error(`${r.message}`, { position: "top-center" });
         return;
       }
 
       onUpdate();
       onClose();
     } catch (error) {
-      toast.error('Error al modificar la solicitud', {
-        position: 'top-center'
+      toast.error("Error al modificar la solicitud", {
+        position: "top-center",
       });
     } finally {
       setLoadingEditSubmit(false);
     }
   };
 
+  /**
+   * Recibe desde el componente InputFile la lista de archivos seleccionados
+   * (ya transformados a base64) y la guarda en el estado local.
+   */
   const handleFileSelect = (updatedFiles) => {
     setFileToUpload(updatedFiles);
   };
 
+  /**
+   * Cierra el modal sin guardar cambios.
+   */
   const closeBtn = () => {
     onClose();
   };
@@ -90,7 +125,9 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
         X
       </button>
       <h4 className="text-lg font-semibold mb-4">Modificar Ausencia</h4>
+
       <form onSubmit={handleFormEditSubmit}>
+        {/* Tipo de ausencia (solo lectura) */}
         <div className="mb-4">
           <label htmlFor="type" className="block text-sm font-medium text-gray-700">
             Tipo de Ausencia
@@ -99,25 +136,27 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
             id="type"
             name="type"
             className="mt-1 block w-full rounded-md border px-2 py-1 border-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            defaultValue={license?.status === 1}
+            // 🔧 FIX 3: defaultValue ahora es el typeId (number), no un booleano
+            defaultValue={license?.typeId}
             disabled
           >
             <option value={license.typeId}>{license.type}</option>
           </select>
         </div>
 
+        {/* Fechas y horas */}
         <div className="w-full">
           <div>
             <div className="campo">
               <label htmlFor="dateStartDate">
                 Fecha de inicio
-                <span style={{ color: 'red', marginLeft: '4px' }}>*</span>
+                <span style={{ color: "red", marginLeft: "4px" }}>*</span>
               </label>
               <input
                 type="date"
                 id="dateStartDate"
                 name="dateStartDate"
-                defaultValue={license?.dateStart ?? ''}
+                defaultValue={license?.dateStart ?? ""}
                 disabled={checkStatus}
                 required
               />
@@ -128,7 +167,7 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
                 type="time"
                 id="dateStartTime"
                 name="dateStartTime"
-                defaultValue={license?.timeStart ?? ''}
+                defaultValue={license?.timeStart ?? ""}
                 disabled={checkStatus}
               />
             </div>
@@ -137,13 +176,13 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
             <div className="campo">
               <label htmlFor="dateEndDate">
                 Fecha de finalización
-                <span style={{ color: 'red', marginLeft: '4px' }}>*</span>
+                <span style={{ color: "red", marginLeft: "4px" }}>*</span>
               </label>
               <input
                 type="date"
                 id="dateEndDate"
                 name="dateEndDate"
-                defaultValue={license?.dateEnd ?? ''}
+                defaultValue={license?.dateEnd ?? ""}
                 disabled={checkStatus}
                 required
               />
@@ -154,13 +193,14 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
                 type="time"
                 id="dateEndTime"
                 name="dateEndTime"
-                defaultValue={license?.timeEnd ?? ''}
+                defaultValue={license?.timeEnd ?? ""}
                 disabled={checkStatus}
               />
             </div>
           </div>
         </div>
 
+        {/* Comentarios */}
         <div className="campo">
           <label htmlFor="comments" className="block font-medium text-gray-700">
             Comentarios
@@ -168,10 +208,12 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
           <textarea
             id="comments"
             name="comments"
-            defaultValue={license?.comments || ''}
+            defaultValue={license?.comments || ""}
             className="mt-1 block w-full rounded-md border px-2 py-1 border-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2"
           />
         </div>
+
+        {/* Bloque de adjuntos solo para tipo 1/2 aprobadas, como antes */}
         <div className="my-4">
           {(license.typeId === 1 || license.typeId === 2) && license.status === 1 ? (
             <>
@@ -189,13 +231,14 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
                         </span>
                       </div>
                       <div className="w-full flex flex-col items-start justify-start">
-                        {filesBack.map((e) => {
-                          return (
-                            <div className="flex flex-col justify-center items-center">
-                              <span key={e.id}>- {e.name ?? 'Desconocido'}</span>
-                            </div>
-                          );
-                        })}
+                        {filesBack.map((e) => (
+                          <div
+                            key={e.id}
+                            className="flex flex-col justify-center items-center"
+                          >
+                            <span>- {e.name ?? "Desconocido"}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ) : filesBack && filesBack.length === 1 ? (
@@ -206,7 +249,7 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
                         </span>
                       </div>
                       <div className="flex flex-col justify-start items-start mb-2">
-                        - {filesBack[0].name ?? 'Desconocido'}
+                        - {filesBack[0].name ?? "Desconocido"}
                       </div>
                       <InputFile onFileSelect={handleFileSelect} maxFiles={1} />
                     </div>
@@ -221,10 +264,11 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
           ) : null}
         </div>
 
+        {/* Botones de acción */}
         <div className="w-full flex justify-between gap-2">
           <button
             className="w-full bg-[#dc3545] text-white py-2 rounded-md"
-            onClick={() => closeBtn()}
+            onClick={closeBtn}
           >
             Cancelar
           </button>
@@ -233,7 +277,7 @@ export const Formulario = ({ license, onClose, onUpdate }) => {
             className="w-full bg-[#3a94cc] text-white py-2 rounded-md"
             disabled={loadingEditSubmit}
           >
-            {loadingEditSubmit ? 'Guardando...' : 'Guardar Cambios'}
+            {loadingEditSubmit ? "Guardando..." : "Guardar Cambios"}
           </button>
         </div>
       </form>

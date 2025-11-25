@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { callApi } from '../../../api/callApi';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');
-
+  const navigate = useNavigate();
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -44,6 +45,15 @@ export const ForgotPassword = () => {
               />
               <button className="boton" type="submit">
                 ENVIAR
+              </button>
+              <button
+                id="forgot_pass"
+                type="button"
+                onClick={() => navigate('/login')}
+                className="font-weight-bold"
+                style={{ border: 'none' }}
+              >
+                Volver
               </button>
             </form>
           </div>

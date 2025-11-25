@@ -1,6 +1,7 @@
 {
   "name": "intranek",
-  "version": "v0.0.1",
+  "version": "v1.0",
+  "description": "Intranek - Intranet Solution",
   "env": "dev",
   "private": true,
   "scripts": {
@@ -25,7 +26,7 @@
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",
     "react": "^19.0.0",
-    "react-datepicker": "^8.8.0",
+    "react-datepicker": "^8.9.0",
     "react-device-detect": "^2.2.3",
     "react-dom": "^19.0.0",
     "react-easy-crop": "^5.1.0",

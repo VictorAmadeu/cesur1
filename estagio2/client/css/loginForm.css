@@ -10,7 +10,7 @@
 .login {
   /* Estructura base centrada */
   width: 100%;
-  min-height: 100vh;                 /* en vez de height fija, mejor altura mínima */
+  min-height: 100vh; /* en vez de height fija, mejor altura mínima */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -21,7 +21,7 @@
   padding: 0 20px;
 
   /* Fondo con imagen a pantalla completa (sintaxis correcta de cover) */
-  background-color: #ddd;            /* color de respaldo mientras carga la imagen */
+  background-color: #ddd; /* color de respaldo mientras carga la imagen */
   background-image: url(images/general/bg-intranek.jpg);
   background-repeat: no-repeat;
   background-position: center;
@@ -32,7 +32,7 @@
 .login * {
   font-size: 16px;
   line-height: 25px;
-  color: #fff;                       /* Mantiene estética original (texto claro) */
+  color: #fff; /* Mantiene estética original (texto claro) */
 }
 
 /* Contenedor de la tarjeta de login */
@@ -46,16 +46,28 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   background: rgba(243, 243, 243, 0.98); /* gris claro, casi opaco */
-  backdrop-filter: blur(2px);             /* suaviza el fondo si el navegador lo soporta */
+  backdrop-filter: blur(2px); /* suaviza el fondo si el navegador lo soporta */
 }
 
 /* Botón/Enlace para volver */
-.login #goback { position: absolute; top: 30px; left: 30px; }
-.login #goback i { font-size: 25px; }
+.login #goback {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+}
+.login #goback i {
+  font-size: 25px;
+}
 
 /* Encabezado y elementos básicos */
-.login h1 { font-size: 20px; text-align: center; }
-.login img { width: 150px; margin-bottom: 10px; }
+.login h1 {
+  font-size: 20px;
+  text-align: center;
+}
+.login img {
+  width: 150px;
+  margin: 0 auto 10px;
+}
 
 /* Enlaces: estado hover */
 .login a:hover {
@@ -88,9 +100,11 @@
   padding: 5px 12px;
   background: #fff;
   color: #222; /* asegura contraste con el fondo blanco del input */
-  border: 2px solid rgba(0, 0, 0, 0.10);
+  border: 2px solid rgba(0, 0, 0, 0.1);
   border-radius: 5px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 /* Select: color de texto más legible */
@@ -102,10 +116,10 @@
 /* Estados de foco accesibles */
 .login-form input:focus,
 .login-form select:focus {
-  outline: 0;                        /* quitamos outline por defecto */
-  border-color: #3a94cc;             /* mejora feedback visual */
+  outline: 0; /* quitamos outline por defecto */
+  border-color: #3a94cc; /* mejora feedback visual */
   box-shadow: 0 0 0 3px rgba(58, 148, 204, 0.25);
-  background: #fff;                  /* mantiene fondo blanco en foco */
+  background: #fff; /* mantiene fondo blanco en foco */
 }
 
 /* Checkbox y label */
@@ -167,14 +181,24 @@
 /* --------------------------------------------------------------------------
    Mensajes y utilidades
    -------------------------------------------------------------------------- */
-.textRed { color: #ffdddd; } /* texto de error sobre fondo claro dentro de la tarjeta */
+.textRed {
+  color: #ffdddd;
+} /* texto de error sobre fondo claro dentro de la tarjeta */
 
 /* --------------------------------------------------------------------------
    Zona de registro (pantallas de registro mantienen coherencia visual)
    -------------------------------------------------------------------------- */
-.register .login-form #labelLOPD { width: 100%; margin-top: 5px; }
-.register .login-form #checkLOPD { width: 5%; margin-right: 5px; }
-.register .login-form input::placeholder { color: rgba(0, 0, 0, 0.35); } /* mejor contraste */
+.register .login-form #labelLOPD {
+  width: 100%;
+  margin-top: 5px;
+}
+.register .login-form #checkLOPD {
+  width: 5%;
+  margin-right: 5px;
+}
+.register .login-form input::placeholder {
+  color: rgba(0, 0, 0, 0.35);
+} /* mejor contraste */
 .register .boton {
   padding: 5px 12px;
   background: #3a94cc;

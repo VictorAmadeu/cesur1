@@ -1,10 +1,21 @@
+// C:\Proyectos\intranek\imports\ui\components\Layout\desktop\NavDesktop.jsx
 // @ts-nocheck
-import React, { useEffect, useState } from 'react';
+// Barra de navegación de ESCRITORIO (versión web/Skytop).
+
+import React, { useState } from 'react';
 import { Header } from '../../Header/Header';
 import { useNavigate } from 'react-router-dom';
-import AuthService from '/imports/service/authService';
 import { usePermissions } from '../../../../context/permissionsContext';
 
+// 🎨 Azul oscuro corporativo reutilizado de mobile (bgAzulO en client/css/home.css)
+const BRAND_DARK_BLUE = '#1674a3';
+
+/**
+ * MenuItem
+ * ----------
+ * Botón principal del menú superior (Inicio, Control de tiempos, etc.).
+ * Se pinta como <button> para poder gestionar hover y click en escritorio.
+ */
 const MenuItem = ({ label, icon, onClick, onMouseEnter }) => (
   <button
     onMouseEnter={onMouseEnter}
@@ -16,7 +27,7 @@ const MenuItem = ({ label, icon, onClick, onMouseEnter }) => (
       alignItems: 'center',
       width: '100%',
       border: 'none',
-      backgroundColor: '#3a94cc'
+      backgroundColor: BRAND_DARK_BLUE
     }}
   >
     {icon && <i className={icon}></i>}
@@ -24,6 +35,11 @@ const MenuItem = ({ label, icon, onClick, onMouseEnter }) => (
   </button>
 );
 
+/**
+ * SubMenuItem
+ * ------------
+ * Elemento individual dentro del submenú desplegable.
+ */
 const SubMenuItem = ({ label, onClick }) => (
   <li style={{ display: 'flex', width: '100%', justifyContent: 'left' }}>
     <button
@@ -32,7 +48,7 @@ const SubMenuItem = ({ label, onClick }) => (
         cursor: 'pointer',
         width: '100%',
         border: 'none',
-        backgroundColor: '#3a94cc',
+        backgroundColor: BRAND_DARK_BLUE,
         paddingBlock: '8px'
       }}
     >
@@ -41,19 +57,29 @@ const SubMenuItem = ({ label, onClick }) => (
   </li>
 );
 
+/**
+ * NavDesktop
+ * -----------
+ * Barra de navegación de la versión web/escritorio.
+ * - Muestra el Header (logo + bloque usuario).
+ * - Pinta el menú superior con el mismo azul oscuro que se usa en móvil.
+ */
 const NavDesktop = () => {
   const navigate = useNavigate();
   const [activeSubMenu, setActiveSubMenu] = useState(null);
   const { permissions } = usePermissions();
 
+  // Abre el submenú cuando el ratón entra en un elemento del menú.
   const handleMouseEnter = (label) => {
     setActiveSubMenu(label);
   };
 
+  // Cierra el submenú cuando el ratón sale del elemento del menú.
   const handleMouseLeave = () => {
     setActiveSubMenu(null);
   };
 
+  // Definición de las secciones que aparecen en la barra de navegación superior.
   const routes = [
     {
       path: '/',
@@ -125,20 +151,37 @@ const NavDesktop = () => {
 
   return (
     <div>
+      {/* Cabecera superior: logo de Intranek + bloque de usuario */}
       <Header />
-      <nav className="navPC">
+
+      {/* Barra de navegación de escritorio.
+          IMPORTANTE: el fondo se fuerza al azul oscuro corporativo
+          para alinearlo con los menús desplegables de móvil. */}
+      <nav className="navPC" style={{ backgroundColor: BRAND_DARK_BLUE }}>
         <ul className="lista">
           {routes.map((route, index) => (
-            <li key={index} className="inicio">
+            <li
+              key={index}
+              className="inicio"
+              onMouseLeave={handleMouseLeave}
+            >
               {route.submenu ? (
                 <div
                   onMouseEnter={() => handleMouseEnter(route.label)}
-                  onMouseLeave={handleMouseLeave}
                   className="relative"
                 >
-                  <MenuItem label={route.label} icon={route.icon} onClick={route.onClick} />
+                  <MenuItem
+                    label={route.label}
+                    icon={route.icon}
+                    onClick={route.onClick}
+                  />
+
+                  {/* Submenú desplegable, mismo azul oscuro que la barra */}
                   {activeSubMenu === route.label && (
-                    <ul className="absolute top-full left-0 w-full flex flex-col items-start bg-[#3a94cc] p-0 z-[9999]">
+                    <ul
+                      className="absolute top-full left-0 w-full flex flex-col items-start p-0 z-[9999]"
+                      style={{ backgroundColor: BRAND_DARK_BLUE }}
+                    >
                       {route.submenu.map((submenuItem, subIndex) => (
                         <SubMenuItem
                           key={subIndex}
@@ -150,7 +193,11 @@ const NavDesktop = () => {
                   )}
                 </div>
               ) : (
-                <MenuItem label={route.label} icon={route.icon} onClick={route.onClick} />
+                <MenuItem
+                  label={route.label}
+                  icon={route.icon}
+                  onClick={route.onClick}
+                />
               )}
             </li>
           ))}
