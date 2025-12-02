@@ -15,6 +15,7 @@ use Psr\Log\LoggerInterface;
 
 use App\Entity\License;
 use App\Entity\User;
+use App\Entity\Companies;
 use App\Entity\DocumentType;
 use App\Entity\Document;
 use App\Entity\AssignedUser;
@@ -472,9 +473,7 @@ class LicenseController extends AbstractController
             ], 200);
         }
 
-        // Control de permisos:
-        // aquí volvemos al comportamiento sencillo: SOLO el dueño
-        // puede ver los documentos desde este endpoint.
+        // Control de permisos: SOLO el dueño puede ver los documentos desde este endpoint.
         if ($license->getUser() !== $user) {
             return $this->json([
                 'message' => 'No autorizado.',
@@ -552,6 +551,145 @@ class LicenseController extends AbstractController
         return $this->json([
             'message' => 'Documento eliminado.',
             'code' => 200,
+        ], 200);
+    }
+
+    /**
+     * Devuelve un resumen de licencias pendientes para supervisores/admin.
+     *
+     * - ROLE_SUPERVISOR: pendientes de los usuarios bajo su supervisión.
+     * - ROLE_ADMIN / ROLE_SUPER_ADMIN: pendientes de toda la compañía.
+     *
+     * Se devuelve un resumen ligero (primeros 5 registros) para mostrar
+     * en banners, iconos de aviso, etc.
+     */
+    #[Route('/pending-summary', name: 'license_pending_summary', methods: ['POST'])]
+    public function pendingSummary(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json([
+                'message' => 'No autorizado.',
+                'code' => 401,
+            ], 200);
+        }
+
+        $role = $user->getRole();
+        $repo = $this->em->getRepository(License::class);
+
+        $count = 0;
+        $list = [];
+
+        if ($role === 'ROLE_SUPERVISOR') {
+            // Supervisor: pendientes de sus asignados
+            $count = $repo->countPendingForSupervisor($user);
+            $pending = $repo->findPendingForSupervisor($user, null, 5, 0);
+            $list = $this->mapLicensesToPreview($pending);
+        } elseif (in_array($role, ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN'], true)) {
+            // Admin/Super admin: pendientes a nivel de compañía
+            $company = $user->getCompany();
+            if (!$company instanceof Companies) {
+                return $this->json([
+                    'message' => 'Compañía no encontrada.',
+                    'code' => 400,
+                ], 200);
+            }
+
+            $count = $repo->countPendingForCompany($company);
+            $pending = $repo->findPendingForCompany($company, null, null, 5, 0);
+            $list = $this->mapLicensesToPreview($pending);
+        } else {
+            return $this->json([
+                'message' => 'Sin permisos para ver pendientes.',
+                'code' => 403,
+            ], 200);
+        }
+
+        return $this->json([
+            'count' => $count,
+            'hasRecords' => $count > 0,
+            'list' => $list,
+            'code' => 200,
+        ], 200);
+    }
+
+    /**
+     * Devuelve el listado de licencias pendientes (paginado y filtrable).
+     *
+     * Body esperado (todos opcionales):
+     * {
+     *   "limit": 20,       // máximo de registros a devolver (1–100)
+     *   "offset": 0,       // desplazamiento para paginación
+     *   "userId": 123,     // filtrar por usuario concreto
+     *   "officeId": 5      // (solo admins) filtrar por oficina
+     * }
+     *
+     * - ROLE_SUPERVISOR: solo ve sus usuarios asignados.
+     * - ROLE_ADMIN / ROLE_SUPER_ADMIN: ve toda la compañía (con filtros).
+     */
+    #[Route('/pending-list', name: 'license_pending_list', methods: ['POST'])]
+    public function pendingList(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        if (!$user) {
+            return $this->json([
+                'message' => 'No autorizado.',
+                'code' => 401,
+            ], 200);
+        }
+
+        $payload = json_decode($request->getContent(), true) ?? [];
+
+        // Normalizamos parámetros de paginación con límites razonables.
+        $limit = min(max((int) ($payload['limit'] ?? 20), 1), 100);
+        $offset = max((int) ($payload['offset'] ?? 0), 0);
+        $userId = isset($payload['userId']) ? (int) $payload['userId'] : null;
+        $officeId = isset($payload['officeId']) ? (int) $payload['officeId'] : null;
+
+        $role = $user->getRole();
+        /** @var \App\Repository\LicenseRepository $repo */
+        $repo = $this->em->getRepository(License::class);
+
+        // Caso supervisor: solo licencias pendientes de su equipo
+        if ($role === 'ROLE_SUPERVISOR') {
+            $count = $repo->countPendingForSupervisor($user, $userId);
+            $pending = $repo->findPendingForSupervisor($user, $userId, $limit, $offset);
+
+            return $this->json([
+                'count' => $count,
+                'hasRecords' => $count > 0,
+                'data' => $this->mapLicensesToPreview($pending),
+                'code' => 200,
+            ], 200);
+        }
+
+        // Caso admin/super admin: licencias pendientes a nivel compañía
+        if (in_array($role, ['ROLE_ADMIN', 'ROLE_SUPER_ADMIN'], true)) {
+            $company = $user->getCompany();
+            if (!$company instanceof Companies) {
+                return $this->json([
+                    'message' => 'Compañía no encontrada.',
+                    'code' => 400,
+                ], 200);
+            }
+
+            $count = $repo->countPendingForCompany($company, $officeId, $userId);
+            $pending = $repo->findPendingForCompany($company, $officeId, $userId, $limit, $offset);
+
+            return $this->json([
+                'count' => $count,
+                'hasRecords' => $count > 0,
+                'data' => $this->mapLicensesToPreview($pending),
+                'code' => 200,
+            ], 200);
+        }
+
+        // Otros roles: sin permiso.
+        return $this->json([
+            'message' => 'Sin permisos para ver pendientes.',
+            'code' => 403,
         ], 200);
     }
 
@@ -717,5 +855,30 @@ class LicenseController extends AbstractController
         if (is_file($path)) {
             @unlink($path);
         }
+    }
+
+    /**
+     * Formatea una lista de licencias a un formato ligero de "preview"
+     * para usar en resúmenes de pendientes (banners, listados, etc.).
+     *
+     * @param License[] $licenses
+     *
+     * @return array[]
+     */
+    private function mapLicensesToPreview(array $licenses): array
+    {
+        return array_map(function (License $license) {
+            $user = $license->getUser();
+
+            return [
+                'id' => $license->getId(),
+                // Usamos getName(), que sabemos que existe (se usa en el envío de emails).
+                'userName' => $user ? $user->getName() : '',
+                'type' => $license->getType(),
+                'dateStart' => $license->getDateStart()?->format('Y-m-d'),
+                'dateEnd' => $license->getDateEnd()?->format('Y-m-d'),
+                'status' => $license->getStatus(),
+            ];
+        }, $licenses);
     }
 }

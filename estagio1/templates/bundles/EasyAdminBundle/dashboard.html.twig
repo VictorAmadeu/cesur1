@@ -1,54 +1,126 @@
-{# templates/bundles/EasyAdmin/dashboard.html.twig #}
+{# admin.intranek/templates/bundles/EasyAdminBundle/dashboard.html.twig #}
+{# Plantilla personalizada del dashboard de EasyAdmin para Intranek. #}
 
 {% extends '@!EasyAdmin/layout.html.twig' %}
+
+{# Bloque de scripts JS adicionales para el panel de administración #}
 {% block javascripts %}
     {{ parent() }}
+    {# Script propio para gestión de filtros en el panel #}
     <script src="{{ asset('js/filters-handler.js') }}"></script>
 {% endblock %}
+
 {% block content %}
+  {# Modal genérico para mostrar mensajes de alerta en el panel #}
   <div class="modal fade alertModal" id="alertModal" tabindex="-1" role="dialog" aria-labelledby="alertModal" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content">
-        <div class="modal-body"><p id="alertContent" class="p-4"></p></div>
+        <div class="modal-body">
+          <p id="alertContent" class="p-4"></p>
+        </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="$('#alertModal').modal('hide')">Aceptar</button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="$('#alertModal').modal('hide')"
+          >
+            Aceptar
+          </button>
         </div>
       </div>
     </div>
   </div>
+
+  {# Modal de carga para operaciones que requieren espera (loading) #}
   <div class="modal fade alertModal" id="loadingModal" tabindex="-1" role="dialog" aria-labelledby="alertModal" aria-hidden="false">
     <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content">
-        <div class="modal-body "><img height="40" src="{{ asset('images/loading.gif') }}"><br>Cargando...</div>
+        <div class="modal-body">
+          <img height="40" src="{{ asset('images/loading.gif') }}"><br>
+          Cargando...
+        </div>
       </div>
     </div>
   </div>
+
+  {# Contenedor principal del contenido del dashboard #}
   <div style="text-align:center;margin-top:16px;">
+
+    {# Selector de compañía (cuando el usuario puede cambiar de empresa) #}
     <form method="POST" id="company-form">
       <div class="form-group">
+        {# Si NO es administrativo ni supervisor, puede seleccionar la empresa #}
         {% if 'ROLE_ADMINISTRATIVE' not in app.user.roles and 'ROLE_SUPERVISOR' not in app.user.roles %}
-          <select name="company_id" id="company-select" class="form-select me-3" style="width: 250px;">
+          <select
+            name="company_id"
+            id="company-select"
+            class="form-select me-3"
+            style="width: 250px;"
+          >
             {% for company in companies %}
-              <option value="{{ company.id }}" {% if selectedCompany and selectedCompany.id == company.id %} selected {% endif %}>
+              <option
+                value="{{ company.id }}"
+                {% if selectedCompany and selectedCompany.id == company.id %}
+                  selected
+                {% endif %}
+              >
                 {{ company.comercialName }}
               </option>
             {% endfor %}
           </select>
         {% else %}
+          {# Para determinados roles, solo se muestra la empresa actual #}
           <span>{{ selectedCompany.name }}</span>
           <input type="hidden" name="company_id" value="{{ selectedCompany.id }}">
         {% endif %}
       </div>
     </form>
-    {# {% if 'ROLE_SUPERVISOR' in app.user.roles %}
-      <div class="notification" id="notification">
-        <span style="color:red;">Tienes {{ ausencias }} Ausencias pendientes</span>
-      </div>
-    {% endif %} #}
 
+    {# Banner de avisos de aprobaciones pendientes (ausencias/vacaciones).
+       Se muestra solo si existe la variable y hay al menos 1 pendiente. #}
+    {% if pendingCount is defined and pendingCount > 0 %}
+      <div
+        style="
+          background:#fff8e1;
+          border:1px solid #ffd54f;
+          color:#8a6d3b;
+          padding:12px 14px;
+          border-radius:12px;
+          margin:16px auto;
+          max-width:600px;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          gap:12px;
+        "
+      >
+        <span>
+          Tienes <strong>{{ pendingCount }}</strong> aprobaciones de ausencias pendientes.
+        </span>
+
+        {# Construimos la URL copiando los filtros actuales (com, off, start, end, us, etc.)
+           y forzamos el CRUD de License en modo índice. #}
+        {% set queryParams = app.request.query.all|merge({
+          'crudControllerFqcn': 'App\\Controller\\Admin\\LicenseCrudController',
+          'crudAction': 'index'
+        }) %}
+
+        {# Enlace directo al listado de Ausencias/Vacaciones en EasyAdmin #}
+        <a
+          href="{{ path('admin', queryParams) }}"
+          class="btn btn-sm btn-primary"
+        >
+          Ver ausencias
+        </a>
+      </div>
+    {% endif %}
+
+    {# Mensaje informativo de que el dashboard detallado está en construcción #}
     <h4>En esta sección encontrarás un resumen de la actividad más importante.</h4>
     <h5>Pronto estará disponible, agradecemos tu paciencia.</h5>
-    <img src="{{ asset('images/underConstruction.jpg') }}">
+
+    {# Imagen de “en construcción” para el dashboard #}
+    <img src="{{ asset('images/underConstruction.jpg') }}" alt="Sección en construcción">
   </div>
 
 {% endblock %}
