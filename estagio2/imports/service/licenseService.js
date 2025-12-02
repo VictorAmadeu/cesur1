@@ -9,6 +9,7 @@ import axiosClient from "./axiosClient";
  * - Crear una nueva licencia (con o sin adjuntos).
  * - Editar una licencia existente (fechas, comentarios, adjuntos).
  * - Eliminar un documento adjunto concreto.
+ * - Consultar aprobaciones pendientes (avisos para supervisores/admin).
  *
  * Todas las funciones devuelven directamente `response.data`.
  * Los errores de red se propagan para que el componente los gestione.
@@ -57,12 +58,55 @@ const LicenseService = {
 
   /**
    * Elimina un documento adjunto concreto.
-   * documentId: id numérico del Document a borrar.
+   * @param {number} documentId - id numérico del Document a borrar.
    */
   deleteDocument: async (documentId) => {
     const response = await axiosClient.post("/license/delete-file", {
       documentId,
     });
+    return response.data;
+  },
+
+  /**
+   * Resumen de aprobaciones pendientes para supervisores/admin.
+   * No necesita parámetros.
+   *
+   * Respuesta esperada del backend:
+   * {
+   *   count: number,         // número total de pendientes
+   *   hasRecords: boolean,   // true si hay al menos una
+   *   list: [                // listado corto para mostrar en un modal/banner
+   *     { id, userName, type, dateStart, dateEnd, status }
+   *   ],
+   *   code: 200
+   * }
+   */
+  pendingSummary: async () => {
+    const response = await axiosClient.post("/license/pending-summary", {});
+    return response.data;
+  },
+
+  /**
+   * Listado de aprobaciones pendientes (paginable/filtrable).
+   *
+   * @param {Object} body - parámetros opcionales de filtrado/paginación:
+   *   {
+   *     limit?: number,   // máximo de registros a devolver
+   *     offset?: number,  // desplazamiento para paginación
+   *     userId?: number,  // filtrar por usuario concreto
+   *     officeId?: number // filtrar por oficina concreta
+   *   }
+   *
+   * Respuesta esperada del backend:
+   * {
+   *   count: number,
+   *   hasRecords: boolean,
+   *   data: [ { ... } ],
+   *   code: 200
+   * }
+   */
+  pendingList: async (body = {}) => {
+    const response = await axiosClient.post("/license/pending-list", body);
     return response.data;
   },
 };
