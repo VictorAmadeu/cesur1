@@ -1,7 +1,7 @@
 {
   "public": {
     "photoUrl": "http://10.0.2.2:8000/uploads/companiesLogoAPP",
-    "baseUrl": "http://10.0.2.2:8000/api"
+    "baseUrl": "http://10.0.2.2:8000/api/"
   },
   "private": {},
   "TZ": "Europe/Madrid"
