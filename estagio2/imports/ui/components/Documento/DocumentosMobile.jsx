@@ -1,146 +1,101 @@
-// Componente de documentos en móvil: lista y descarga con fetch + FileSaver
+// C:\Proyectos\intranek\imports\ui\components\Documento\DocumentosMobile.jsx
+//
+// Componente móvil para listar y descargar documentos.
+// - Usa file-saver para forzar la descarga en móviles.
+// - Convierte base64 → Blob con la utilidad base64ToBlob.
+// - Marca el documento como leído antes de descargar.
+//
+// Requisitos:
+//   npm i file-saver
+//   Tener la utilidad en imports/utils/files.js (esta versión del import asume esa ubicación).
 
 import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie";
-import { Meteor } from "meteor/meteor";
 import { callApi } from "../../../api/callApi";
 import useAuthInterceptor from "../../hooks/useAuthInterceptor";
-import { saveAs } from "file-saver";
-
-// ============================================================================
-// HELPERS (sin hooks - permitidos fuera del componente)
-// ============================================================================
-
-/**
- * Normaliza una URL base asegurando que termina con barra diagonal
- */
-const normalizeBaseUrl = (url) => (url.endsWith("/") ? url : `${url}/`);
-
-const apiBase = normalizeBaseUrl(Meteor.settings.public.baseUrl);
-
-/**
- * Extrae el origen (protocolo + host) de la URL base del API
- */
-const apiOrigin = (() => {
-  try {
-    const u = new URL(apiBase);
-    return `${u.protocol}//${u.host}`;
-  } catch (e) {
-    return "";
-  }
-})();
-
-/**
- * Construye la URL completa del archivo
- * - Si es absoluta, la retorna tal cual
- * - Si es relativa, la antepone el origen del API
- */
-const buildFileUrl = (docUrl) => {
-  if (!docUrl) return null;
-  try {
-    return new URL(docUrl).href;
-  } catch (e) {
-    return `${apiOrigin}${docUrl.startsWith("/") ? "" : "/"}${docUrl}`;
-  }
-};
-
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
+import { saveAs } from "file-saver";                 // fuerza descarga en Android/iOS
+import { base64ToBlob } from "../../../utils/files"; // ← OJO: tres niveles (imports/utils/files.js)
 
 export const DocumentoMovil = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({});
+  const [data, setData] = useState({});                // { "Nóminas": [...], "Contratos": [...] }
   const [selectedTab, setSelectedTab] = useState(null);
 
   const callApiWithAuth = useAuthInterceptor(callApi);
 
-  /**
-   * Obtiene la lista de documentos del usuario desde el API
-   */
   const getDocs = async () => {
     try {
       setLoading(true);
       const token = Cookies.get("tokenIntranEK");
       const response = await callApiWithAuth("document", undefined, token);
-      setData(response);
-      setSelectedTab(Object.keys(response)[0]);
+      setData(response || {});
+      const firstKey =
+        response && Object.keys(response).length > 0
+          ? Object.keys(response)[0]
+          : null;
+      setSelectedTab(firstKey);
     } catch (error) {
-      console.log(error);
+      console.error("Error obteniendo documentos:", error);
+      setData({});
+      setSelectedTab(null);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Al montar el componente, carga los documentos
-   */
   useEffect(() => {
     getDocs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
-   * Descarga un archivo del servidor
-   * 1. Intenta con token (Authorization header)
-   * 2. Si falla, reintenta sin credenciales
-   * 3. Marca el documento como leído
-   * 4. Refresca la lista
+   * Descarga un documento desde su base64:
+   * 1) Marca como leído (no bloquea la descarga si falla).
+   * 2) Detecta un MIME razonable.
+   * 3) Convierte base64 → Blob y descarga con file-saver.
    */
-  const downloadFile = async (doc) => {
-    const fileUrl = buildFileUrl(doc.url);
-    if (!fileUrl) {
-      alert("No se pudo construir la URL del archivo.");
-      return;
-    }
-
+  const downloadBase64File = async (base64, fileName, id) => {
     try {
       const token = Cookies.get("tokenIntranEK");
-
-      // Opciones de fetch - sin type assertions (compatible con JSX)
-      const fetchOptions = {
-        mode: "cors",
-        ...(token && {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
-      };
-
-      let res = await fetch(fileUrl, fetchOptions);
-
-      // Si falla con token, reintentar sin credenciales (para archivos estáticos)
-      if (!res.ok && token) {
-        console.warn(
-          "Descarga con token falló, reintentando sin credenciales..."
-        );
-        res = await fetch(fileUrl, { mode: "cors" });
-      }
-
-      if (!res.ok) {
-        throw new Error(`Error HTTP ${res.status}`);
-      }
-
-      const blob = await res.blob();
-      saveAs(blob, doc.name);
-
-      // Marca el documento como leído y refresca la lista
-      const mark = await callApiWithAuth(
-        "document/mark-read",
-        { id: doc.id },
-        token
-      );
-      if (mark?.code === "200") {
-        getDocs();
+      const req = await callApiWithAuth("document/mark-read", { id }, token);
+      if (req?.code === "200") {
+        getDocs(); // refresca viewedAt
       }
     } catch (error) {
-      console.error("Error al descargar:", error);
-      alert("No se pudo descargar el documento. Inténtalo de nuevo.");
+      console.warn("No se pudo marcar como leído:", error);
+    }
+
+    const ext = (fileName?.split(".").pop() || "").toLowerCase();
+    let mimeType = "application/octet-stream";
+    if (ext === "pdf") mimeType = "application/pdf";
+    else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+    else if (ext === "png") mimeType = "image/png";
+    else if (ext === "gif") mimeType = "image/gif";
+    else if (ext === "csv") mimeType = "text/csv";
+    else if (ext === "xlsx")
+      mimeType =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    try {
+      const blob = base64ToBlob(base64, mimeType); // tolera data:...;base64,AAA y AAA
+      saveAs(blob, fileName || "documento");
+    } catch (e) {
+      // Fallback por si algo raro pasa con el base64
+      try {
+        const link = document.createElement("a");
+        link.href = base64.startsWith("data:")
+          ? base64
+          : `data:${mimeType};base64,${base64}`;
+        link.download = fileName || "documento";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (err) {
+        alert("No se pudo iniciar la descarga del documento.");
+        console.error("Fallo al descargar documento:", err);
+      }
     }
   };
-
-  // =========================================================================
-  // RENDER
-  // =========================================================================
 
   return (
     <div>
@@ -152,7 +107,7 @@ export const DocumentoMovil = () => {
         <div className="p-4">
           {selectedTab && data[selectedTab] && data[selectedTab].length > 0 ? (
             <>
-              {/* Selector de tipo de documento */}
+              {/* Selector del tipo de documento */}
               <div className="mb-4">
                 <select
                   className="w-full px-4 py-2 rounded-lg border border-gray-300"
@@ -174,20 +129,18 @@ export const DocumentoMovil = () => {
                     key={doc.id}
                     className="p-4 bg-white shadow rounded-lg border border-gray-200"
                   >
-                    {/* Nombre del documento */}
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-800 break-words max-w-full">
                         {doc.name}
                       </span>
                     </div>
 
-                    {/* Información de fechas */}
                     <div className="mt-2 text-sm text-gray-600">
                       <p>
                         <strong>Creado el:</strong>{" "}
                         {doc.createdAt
                           ? new Date(doc.createdAt).toLocaleString()
-                          : "N/D"}
+                          : "-"}
                       </p>
                       <p>
                         <strong>Visto el:</strong>{" "}
@@ -197,10 +150,11 @@ export const DocumentoMovil = () => {
                       </p>
                     </div>
 
-                    {/* Botón de descarga */}
                     <button
-                      onClick={() => downloadFile(doc)}
-                      className="mt-2 w-full px-3 py-2 text-white bg-[#3a94cc] rounded-lg hover:bg-[#3a94cc]"
+                      onClick={() =>
+                        downloadBase64File(doc.base64, doc.name, doc.id)
+                      }
+                      className="mt-2 w-full px-3 py-2 text-white bg-[#3a94cc] rounded-lg hover:bg-[#337fb0]"
                     >
                       Descargar
                     </button>

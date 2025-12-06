@@ -1,6 +1,6 @@
 {
   "name": "intranek",
-  "version": "1.0.0",
+  "version": "v1.1",
   "description": "Intranek - Intranet Solution",
   "env": "dev",
   "private": true,
