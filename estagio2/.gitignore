@@ -4,3 +4,4 @@ Dockerfile
 build/
 ./build
 assets-temp/
+coverage/
