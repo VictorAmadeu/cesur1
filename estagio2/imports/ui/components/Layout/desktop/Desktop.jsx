@@ -4,10 +4,10 @@ import { ToastContainer } from 'react-toastify';
 
 const DesktopLayout = ({ children }) => {
   return (
-    <div>
-      <ToastContainer />
+    <div className="h-screen flex flex-col">
       <NavDesktop />
-      <div className="w-full h-full">{children}</div>
+      <div className="flex-1 w-full">{children}</div>
+      <ToastContainer />
     </div>
   );
 };

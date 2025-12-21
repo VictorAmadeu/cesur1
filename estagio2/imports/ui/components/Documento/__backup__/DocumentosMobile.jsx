@@ -1,24 +1,24 @@
-// C:\Proyectos\intranek\imports\ui\components\Documento\DocumentosMobile.jsx
+﻿// C:\Proyectos\intranek\imports\ui\components\Documento\DocumentosMobile.jsx
 //
-// Componente móvil para listar y descargar documentos.
-// - Usa file-saver para forzar la descarga en móviles.
-// - Convierte base64 → Blob con la utilidad base64ToBlob.
-// - Marca el documento como leído antes de descargar.
+// Componente m├│vil para listar y descargar documentos.
+// - Usa file-saver para forzar la descarga en m├│viles.
+// - Convierte base64 ΓåÆ Blob con la utilidad base64ToBlob.
+// - Marca el documento como le├¡do antes de descargar.
 //
 // Requisitos:
 //   npm i file-saver
-//   Tener la utilidad en imports/utils/files.js (esta versión del import asume esa ubicación).
+//   Tener la utilidad en imports/utils/files.js (esta versi├│n del import asume esa ubicaci├│n).
 
 import React, { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { callApi } from "../../../api/callApi";
 import useAuthInterceptor from "../../hooks/useAuthInterceptor";
 import { saveAs } from "file-saver";                 // fuerza descarga en Android/iOS
-import { base64ToBlob } from "../../../utils/files"; // ← OJO: tres niveles (imports/utils/files.js)
+import { base64ToBlob } from "../../../utils/files"; // ΓåÉ OJO: tres niveles (imports/utils/files.js)
 
 export const DocumentoMovil = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({});                // { "Nóminas": [...], "Contratos": [...] }
+  const [data, setData] = useState({});                // { "N├│minas": [...], "Contratos": [...] }
   const [selectedTab, setSelectedTab] = useState(null);
 
   const callApiWithAuth = useAuthInterceptor(callApi);
@@ -50,9 +50,9 @@ export const DocumentoMovil = () => {
 
   /**
    * Descarga un documento desde su base64:
-   * 1) Marca como leído (no bloquea la descarga si falla).
+   * 1) Marca como le├¡do (no bloquea la descarga si falla).
    * 2) Detecta un MIME razonable.
-   * 3) Convierte base64 → Blob y descarga con file-saver.
+   * 3) Convierte base64 ΓåÆ Blob y descarga con file-saver.
    */
   const downloadBase64File = async (base64, fileName, id) => {
     try {
@@ -62,7 +62,7 @@ export const DocumentoMovil = () => {
         getDocs(); // refresca viewedAt
       }
     } catch (error) {
-      console.warn("No se pudo marcar como leído:", error);
+      console.warn("No se pudo marcar como le├¡do:", error);
     }
 
     const ext = (fileName?.split(".").pop() || "").toLowerCase();

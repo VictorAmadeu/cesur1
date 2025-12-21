@@ -1,4 +1,5 @@
 import React from "react";
+import { Meteor } from "meteor/meteor";
 import DatePicker from "react-datepicker";
 // @ts-ignore  — CSS side-effect import; el bundler lo gestiona, TS no tiene tipos
 import "react-datepicker/dist/react-datepicker.css";
@@ -42,7 +43,78 @@ export const DatePickerSelect = ({ type, allowFutureDates = false }) => {
     setRangeWeek,
   } = useDate();
 
-  const current = dayjs(date);
+  let safeDate = date instanceof Date ? date : dayjs(date).toDate();
+  if (Number.isNaN(safeDate.getTime())) {
+    safeDate = dayjs().toDate();
+  }
+  const current = dayjs(safeDate);
+
+  const isCordova = typeof Meteor !== "undefined" && Meteor.isCordova;
+
+  const getWeekInputValue = (dateValue) => {
+    const weekYear = dateValue.isoWeekYear();
+    const weekNumber = dateValue.isoWeek();
+    return `${weekYear}-W${String(weekNumber).padStart(2, "0")}`;
+  };
+
+  const getNativeValue = () => {
+    if (type === "year") return String(year);
+    if (type === "week") return getWeekInputValue(current);
+    if (type === "month") return current.format("YYYY-MM");
+    return current.format("YYYY-MM-DD");
+  };
+
+  const getNativeMax = () => {
+    if (allowFutureDates) return undefined;
+    const today = dayjs();
+    if (type === "year") return String(today.year());
+    if (type === "week") return getWeekInputValue(today);
+    if (type === "month") return today.format("YYYY-MM");
+    return today.format("YYYY-MM-DD");
+  };
+
+  const handleNativeChange = (event) => {
+    const { value } = event.target;
+    if (!value) return;
+
+    if (type === "year") {
+      const nextYear = Number(value);
+      if (!Number.isNaN(nextYear)) setYear(nextYear);
+      return;
+    }
+
+    if (type === "week") {
+      const [yearPart, weekPart] = value.split("-W");
+      const weekYear = Number(yearPart);
+      const weekNumber = Number(weekPart);
+      if (Number.isNaN(weekYear) || Number.isNaN(weekNumber)) return;
+
+      const weekStart = dayjs()
+        .isoWeekYear(weekYear)
+        .isoWeek(weekNumber)
+        .startOf("isoWeek");
+
+      setDate(weekStart.toDate());
+      setRangeWeek({
+        start: weekStart.format("YYYY-MM-DD"),
+        end: weekStart.endOf("isoWeek").format("YYYY-MM-DD"),
+      });
+      return;
+    }
+
+    const formatByType = {
+      date: "YYYY-MM-DD",
+      month: "YYYY-MM",
+    };
+    const parsed = dayjs(value, formatByType[type]);
+    if (!parsed.isValid()) return;
+
+    if (type === "month") {
+      setDate(parsed.startOf("month").toDate());
+    } else {
+      setDate(parsed.startOf("day").toDate());
+    }
+  };
 
   /**
    * Cambia la fecha según el tipo de selector:
@@ -140,6 +212,39 @@ export const DatePickerSelect = ({ type, allowFutureDates = false }) => {
     }
   };
 
+  const renderCordovaInput = () => {
+    const baseClass =
+      "cursor-pointer border border-gray-300 rounded-md px-4 py-1 font-medium bg-white hover:bg-gray-100 transition text-center w-full";
+
+    const commonProps = {
+      className: baseClass,
+      onChange: handleNativeChange,
+      value: getNativeValue(),
+      max: getNativeMax(),
+      "aria-label": renderLabel(),
+    };
+
+    if (type === "year") {
+      return (
+        <input
+          type="number"
+          inputMode="numeric"
+          {...commonProps}
+        />
+      );
+    }
+
+    if (type === "week") {
+      return <input type="week" {...commonProps} />;
+    }
+
+    if (type === "month") {
+      return <input type="month" {...commonProps} />;
+    }
+
+    return <input type="date" {...commonProps} />;
+  };
+
   return (
     <div className="flex flex-col items-center">
       <div className="w-full flex items-center justify-between gap-2 my-2">
@@ -154,8 +259,11 @@ export const DatePickerSelect = ({ type, allowFutureDates = false }) => {
         </button>
 
         {/* DatePicker con input personalizado (renderLabel) */}
+        {isCordova ? (
+          renderCordovaInput()
+        ) : (
         <DatePicker
-          selected={type === "year" ? new Date(year, 0) : date}
+          selected={type === "year" ? new Date(year, 0) : safeDate}
           onChange={handleChange}
           calendarStartDay={1}
           showMonthYearPicker={type === "month"}
@@ -174,6 +282,7 @@ export const DatePickerSelect = ({ type, allowFutureDates = false }) => {
           withPortal
           portalId="root"
         />
+        )}
 
         {/* Flecha adelante (se desactiva cuando proceda) */}
         <button

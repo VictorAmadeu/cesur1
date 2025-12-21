@@ -1,4 +1,12 @@
-// imports/ui/components/Horario/ScheduleGrid.jsx
+// C:\Proyectos\intranek\imports\ui\components\Horario\ScheduleGrid.jsx
+//
+// Componente unificado tipo “cards” para Horario (desktop + móvil si se desea).
+// Consume el contrato del adapter:
+//   scheduleByDate[date] = { segments:[], extraSegments:[], workStart?, workEnd?, status }
+//
+// Producción:
+// - Render defensivo: si faltan campos, no rompe.
+
 import React from "react";
 import dayjs from "/imports/utils/dayjsConfig";
 
@@ -16,10 +24,12 @@ function buildWeek(startDate) {
 }
 
 // Extras que afectan a un día concreto (empieza, termina o atraviesa el día)
-function extrasForDay(extras = [], day) {
-  return extras.filter((seg) => {
-    const start = dayjs(seg?.dateStart);
-    const end = dayjs(seg?.dateEnd);
+function extrasForDay(extras, day) {
+  const safeExtras = Array.isArray(extras) ? extras : [];
+  return safeExtras.filter((seg) => {
+    const start = dayjs(seg && seg.dateStart);
+    const end = dayjs(seg && seg.dateEnd);
+
     return (
       (start.isValid() && start.isSame(day, "day")) ||
       (end.isValid() && end.isSame(day, "day")) ||
@@ -29,25 +39,32 @@ function extrasForDay(extras = [], day) {
 }
 
 // Intenta obtener una hora HH:mm desde varias posibles keys
-const pickTime = (obj, candidates = []) =>
-  candidates.map((k) => obj?.[k]).find((v) => typeof v === "string" && v);
+function pickTime(obj, candidates) {
+  const safe = obj || {};
+  const list = Array.isArray(candidates) ? candidates : [];
+  for (let i = 0; i < list.length; i += 1) {
+    const v = safe[list[i]];
+    if (typeof v === "string" && v) return v;
+  }
+  return null;
+}
 
 // Deriva “estado del día” y “horario principal” con fallbacks suaves.
-// Regla solicitada: si no hay datos y el día es L–V => laboral.
-function deriveDayInfo(dayData = {}, segments = [], isWeekday = false) {
-  const start =
-    pickTime(dayData, ["workStart", "start", "startTime", "scheduleStart"]) || null;
-  const end =
-    pickTime(dayData, ["workEnd", "end", "endTime", "scheduleEnd"]) || null;
+function deriveDayInfo(dayData, segments, isWeekday) {
+  const safeDay = dayData || {};
+  const safeSegments = Array.isArray(segments) ? segments : [];
+
+  const start = pickTime(safeDay, ["workStart", "start", "startTime", "scheduleStart"]);
+  const end = pickTime(safeDay, ["workEnd", "end", "endTime", "scheduleEnd"]);
 
   // Si el backend trae un campo status/type lo usamos tal cual
-  const rawStatus = (dayData?.status || dayData?.type || "").toString().toLowerCase();
+  const rawStatus = String(safeDay.status || safeDay.type || "").toLowerCase();
 
   let status = rawStatus;
   if (!status) {
     if (start && end) status = "laboral";
-    else if (segments.length > 0) status = "laboral";
-    else status = isWeekday ? "laboral" : "libre"; // ✅ regla L–V por defecto
+    else if (safeSegments.length > 0) status = "laboral";
+    else status = isWeekday ? "laboral" : "libre";
   }
 
   // Normalizamos
@@ -58,30 +75,34 @@ function deriveDayInfo(dayData = {}, segments = [], isWeekday = false) {
 }
 
 // Etiqueta de segmento tolerante a distintas keys
-const getSegmentLabel = (s) => s?.label ?? s?.name ?? s?.typeLabel ?? s?.type ?? "";
+function getSegmentLabel(s) {
+  if (!s) return "";
+  return s.label || s.name || s.typeLabel || s.type || "";
+}
 
-const ScheduleGrid = ({
-  startDate,
-  endDate, // (conservado por contrato)
-  scheduleByDate = {},
-  extraSegments = { segments: [] },
-}) => {
+const ScheduleGrid = ({ startDate, endDate, scheduleByDate, extraSegments }) => {
+  // endDate se conserva por contrato (aunque no siempre se use)
+  void endDate;
+
   const days = buildWeek(startDate);
-  const extras = Array.isArray(extraSegments?.segments) ? extraSegments.segments : [];
+
+  const extrasWrapper = extraSegments || { segments: [] };
+  const extras = Array.isArray(extrasWrapper.segments) ? extrasWrapper.segments : [];
+
+  const map = scheduleByDate || {};
 
   return (
-    // Layout “cards” unificado (móvil y desktop)
     <div className="mx-auto w-full max-w-[960px] px-3 space-y-6">
       {days.map(({ date, label, prettyDate, d }) => {
-        const dayData = scheduleByDate?.[date] || {};
-        const segments = Array.isArray(dayData?.segments) ? dayData.segments : [];
+        const dayData = map[date] || {};
+        const segments = Array.isArray(dayData.segments) ? dayData.segments : [];
         const dayExtras = extrasForDay(extras, d);
 
         // dayjs().day(): 0=Dom, 6=Sáb → weekday = L–V (1..5)
         const isWeekday = d.day() >= 1 && d.day() <= 5;
-        const { status, workStart, workEnd } = deriveDayInfo(dayData, segments, isWeekday);
+        const derived = deriveDayInfo(dayData, segments, isWeekday);
 
-        const isLaboral = status === "laboral";
+        const isLaboral = derived.status === "laboral";
         const badgeClass = isLaboral
           ? "bg-emerald-100 text-emerald-700"
           : "bg-rose-100 text-rose-700";
@@ -92,7 +113,6 @@ const ScheduleGrid = ({
             className="rounded-2xl shadow border bg-white p-5 md:p-6"
             aria-label={`Horario del ${label} ${prettyDate}`}
           >
-            {/* Cabecera: Día + fecha + píldora de estado */}
             <header className="flex items-start justify-between">
               <div>
                 <h3 className="text-xl font-semibold capitalize">{label}</h3>
@@ -107,15 +127,12 @@ const ScheduleGrid = ({
               </span>
             </header>
 
-            {/* “Horario: 09:00 - 18:00” si tenemos ambos extremos */}
-            {(workStart && workEnd) && (
+            {(derived.workStart && derived.workEnd) ? (
               <p className="mt-4 text-sm">
-                <span className="font-semibold">Horario:</span>{" "}
-                {workStart} - {workEnd}
+                <span className="font-semibold">Horario:</span> {derived.workStart} - {derived.workEnd}
               </p>
-            )}
+            ) : null}
 
-            {/* Segmentos con chip de horas + etiqueta alineada a la derecha */}
             <div className="mt-3">
               <p className="text-sm font-medium mb-2">Segmentos:</p>
 
@@ -124,7 +141,8 @@ const ScheduleGrid = ({
               ) : (
                 <div className="space-y-2">
                   {segments.map((s, i) => {
-                    const id = s?.id ?? `${date}-${s?.start ?? ""}-${s?.end ?? ""}-${i}`;
+                    const id =
+                      (s && s.id) || `${date}-${(s && s.start) || ""}-${(s && s.end) || ""}-${i}`;
                     const labelRight = getSegmentLabel(s);
 
                     return (
@@ -133,7 +151,7 @@ const ScheduleGrid = ({
                         className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2"
                       >
                         <span className="inline-flex items-center rounded-full bg-white border px-2 py-1 text-xs font-medium">
-                          {(s?.start ?? "").toString()} - {(s?.end ?? "").toString()}
+                          {String((s && s.start) || "")} - {String((s && s.end) || "")}
                         </span>
 
                         {labelRight ? (
@@ -146,14 +164,13 @@ const ScheduleGrid = ({
               )}
             </div>
 
-            {/* Contador de extras del día */}
-            {dayExtras.length > 0 && (
+            {dayExtras.length > 0 ? (
               <div className="mt-3">
                 <span className="text-xs rounded-full bg-blue-50 text-blue-600 px-2 py-0.5">
                   {dayExtras.length} extra{dayExtras.length > 1 ? "s" : ""}
                 </span>
               </div>
-            )}
+            ) : null}
           </article>
         );
       })}

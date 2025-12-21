@@ -1,4 +1,3 @@
-// C:\Proyectos\intranek\imports\ui\components\Layout\index.jsx
 import React from 'react';
 import { useMediaQuery } from 'react-responsive';
 import DesktopLayout from './desktop/Desktop.jsx';

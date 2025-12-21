@@ -1,9 +1,9 @@
-// C:\Proyectos\intranek\imports\ui\components\Documento\DocumentosWeb.jsx
+﻿// C:\Proyectos\intranek\imports\ui\components\Documento\DocumentosWeb.jsx
 //
-// Versión web unificada con la versión móvil para la descarga de documentos.
+// Versi├│n web unificada con la versi├│n m├│vil para la descarga de documentos.
 // - Usa file-saver para forzar la descarga (mejor que data URI).
-// - Convierte base64 → Blob con la utilidad base64ToBlob.
-// - Marca el documento como leído antes de descargar.
+// - Convierte base64 ΓåÆ Blob con la utilidad base64ToBlob.
+// - Marca el documento como le├¡do antes de descargar.
 // - Manejo de errores no bloqueante para no romper la app.
 //
 // Requisitos:
@@ -15,14 +15,14 @@ import Cookies from "js-cookie";
 import { callApi } from "../../../api/callApi";
 import useAuthInterceptor from "../../hooks/useAuthInterceptor";
 import { saveAs } from "file-saver";                 // fuerza la descarga
-import { base64ToBlob } from "../../../utils/files"; // util base64 → Blob (ruta: imports/utils/files.js)
+import { base64ToBlob } from "../../../utils/files"; // util base64 ΓåÆ Blob (ruta: imports/utils/files.js)
 
 export const DocumentosWeb = () => {
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({});                // { "Nóminas": [...], "Contratos": [...] }
+  const [data, setData] = useState({});                // { "N├│minas": [...], "Contratos": [...] }
   const [selectedTab, setSelectedTab] = useState(null);
 
-  // Cliente API con interceptor de autorización/401
+  // Cliente API con interceptor de autorizaci├│n/401
   const callApiWithAuth = useAuthInterceptor(callApi);
 
   // Cargar documentos agrupados por tipo
@@ -53,12 +53,12 @@ export const DocumentosWeb = () => {
 
   /**
    * Descarga un documento usando su base64.
-   * 1) Marca el documento como leído en backend (si falla, no bloquea).
-   * 2) Detecta tipo MIME según extensión.
-   * 3) Convierte base64 → Blob y descarga con file-saver (mejor en móvil y escritorio).
+   * 1) Marca el documento como le├¡do en backend (si falla, no bloquea).
+   * 2) Detecta tipo MIME seg├║n extensi├│n.
+   * 3) Convierte base64 ΓåÆ Blob y descarga con file-saver (mejor en m├│vil y escritorio).
    */
   const downloadBase64File = async (base64, fileName, id) => {
-    // 1) Marcar como leído (errores no bloquean la descarga)
+    // 1) Marcar como le├¡do (errores no bloquean la descarga)
     try {
       const token = Cookies.get("tokenIntranEK");
       const req = await callApiWithAuth("document/mark-read", { id }, token);
@@ -66,10 +66,10 @@ export const DocumentosWeb = () => {
         getDocs(); // refresca viewedAt
       }
     } catch (error) {
-      console.warn("No se pudo marcar como leído:", error);
+      console.warn("No se pudo marcar como le├¡do:", error);
     }
 
-    // 2) Deducir MIME por extensión (fallback seguro)
+    // 2) Deducir MIME por extensi├│n (fallback seguro)
     const ext = (fileName?.split(".").pop() || "").toLowerCase();
     let mimeType = "application/octet-stream";
     if (ext === "pdf") mimeType = "application/pdf";
@@ -110,7 +110,7 @@ export const DocumentosWeb = () => {
         </div>
       ) : (
         <div className="p-6 max-w-4xl mx-auto">
-          {/* Pestañas por tipo */}
+          {/* Pesta├▒as por tipo */}
           <div className="flex justify-start flex-wrap gap-2 mb-4">
             {Object.keys(data).map((type) => (
               <button
@@ -140,10 +140,10 @@ export const DocumentosWeb = () => {
                       Nombre
                     </th>
                     <th className="text-left py-3 px-4 font-semibold text-white text-sm">
-                      Fecha de Creación
+                      Fecha de Creaci├│n
                     </th>
                     <th className="text-left py-3 px-4 font-semibold text-white text-sm">
-                      Fecha de Visualización
+                      Fecha de Visualizaci├│n
                     </th>
                     <th className="text-left py-3 px-4 font-semibold text-white text-sm">
                       Acciones

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import CheckinService from "/imports/service/checkinService";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { FiEdit } from "react-icons/fi";
 
 const JustificationRegister = () => {
@@ -61,7 +61,6 @@ const JustificationRegister = () => {
 
     return (
         <div className="w-full">
-            <ToastContainer />
             {pendingSummary?.hasRecords === false ? (<span className="w-full flex justify-center items-center">No hay registros pendientes</span>) : (
                 <div className="w-full">
                     <p className="text-center">Total de registros: {pendingSummary?.count ? pendingSummary.count : 0}</p>

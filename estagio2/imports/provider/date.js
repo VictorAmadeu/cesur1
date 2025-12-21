@@ -24,8 +24,12 @@ export const DateProvider = ({ children }) => {
 
   /** Establece la fecha seleccionada y actualiza el año */
   const setDate = (date) => {
-    setSelectedDate(date);
-    setSelectedYear(dayjs(date).year());
+    let safeDate = date instanceof Date ? date : dayjs(date).toDate();
+    if (Number.isNaN(safeDate.getTime())) {
+      safeDate = dayjs().toDate();
+    }
+    setSelectedDate(safeDate);
+    setSelectedYear(dayjs(safeDate).year());
   };
 
   /** Establece el año (por si se selecciona desde un selector de año) */

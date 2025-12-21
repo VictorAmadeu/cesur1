@@ -1,76 +1,154 @@
 # Flujo de login y sesión (Intranek)
 
-> Objetivo: dejar por escrito qué hace exactamente el front-end de Intranek cuando un usuario inicia sesión, mantiene la sesión viva y cierra sesión. Esta información sirve de base para los tests unitarios de `AuthService` y de la pantalla de Login.
+> **Objetivo:** dejar por escrito qué hace exactamente el front-end de Intranek cuando un usuario inicia sesión, mantiene la sesión viva y cierra sesión.  
+> Esta información sirve de base para los tests unitarios de `AuthService` y de la pantalla de Login.
 
 ---
 
-## 1. Entrada y validaciones
+## 1. Entrada y validaciones (UI)
 
-**Punto de entrada (UI)**  
+### 1.1 Punto de entrada
+
 - Componente principal: `imports/ui/components/Login/LoginForm.jsx`.
-- El formulario recoge: `email`, `password` y el checkbox `_remember_me`.
+- El formulario recoge:
+  - `username` (email)
+  - `password`
+  - checkbox `_remember_me`
 
-**Validaciones en el front-end**
-
-- El email se valida con la librería `validator` (formato correcto de correo).
-- Se permite mostrar/ocultar la contraseña desde la propia UI.
-- En la versión web, cuando `_remember_me` es verdadero se guarda el email en `localStorage` para precargarlo en futuros logins.
-- No se permite enviar el formulario si faltan campos obligatorios o el email es inválido.
+> Nota: `_remember_me` se usa con doble propósito:
+> - **UX:** recordar el email (solo el email) para precargarlo en futuros logins.
+> - **Sesión:** se envía también al backend (si aplica) para “recordar sesión”/duración de cookies según la política existente.
 
 ---
 
-## 2. Servicios y efectos secundarios
+### 1.2 Validaciones en el front-end (sin jQuery)
 
-**Servicio principal**
+- **No se usa jQuery**: toda la validación y comportamiento se resuelve con React (estado controlado + handlers).
+- El email se valida con la librería `validator`:
+  - Validación en `onBlur` (aviso si el formato no es válido).
+  - En el envío (`onSubmit`) se bloquea el login si:
+    - Falta el email o no tiene formato válido.
+    - Falta la contraseña.
+- Se permite **mostrar/ocultar la contraseña** desde la UI (botón con icono).
+- El formulario evita recargas:
+  - `onSubmit` hace `preventDefault()` para no recargar la SPA.
 
-- `AuthService.login` llama al endpoint `/login_check`.
-- En caso de autenticación correcta:
-  - Guarda las cookies `tokenIntranEK` y `name`.
-  - La expiración de las cookies depende de `_remember_me`:
-    - **30 días** si `_remember_me` es verdadero.
-    - **8 horas** si `_remember_me` es falso.
+---
 
-**Permisos y rol**
+## 2. Persistencia del email (“Recordar mi email”)
 
-- Tras el login, `AuthService.fetchPermissions` obtiene permisos y rol del usuario.
-- `PermissionsContext` almacena en cookies y en estado global:
+### 2.1 Al montar el formulario
+
+- Se intenta leer el último email guardado en `localStorage` (clave interna del componente, por ejemplo `EMAIL_KEY`).
+- Si existe:
+  - Se precarga en el input de email.
+  - Se marca el checkbox `_remember_me`.
+
+### 2.2 Durante el login exitoso
+
+- Si el login es correcto:
+  - Si `_remember_me` está activo y hay `username`:
+    - Se guarda el email en `localStorage`.
+  - Si `_remember_me` está desactivado:
+    - Se elimina el email guardado de `localStorage`.
+
+### 2.3 “Olvidar email guardado”
+
+- La UI expone una acción para eliminar manualmente el email guardado:
+  - Borra el valor de `localStorage`.
+  - Limpia el estado del formulario y desmarca `_remember_me`.
+
+> Importante (producción): **solo se persiste el email**, nunca la contraseña.
+
+---
+
+## 3. Servicios implicados y efectos secundarios
+
+### 3.1 Servicio principal de autenticación
+
+- `AuthService.login(credentials)` llama al endpoint `/login_check`.
+- En caso de autenticación correcta (HTTP 200):
+  - Se establecen cookies de sesión (por ejemplo `tokenIntranEK` y `name`) según la implementación existente.
+  - La política de duración/expiración de cookies depende de `_remember_me` y de la implementación actual (front/back).
+
+> Nota: este documento describe el flujo del front. La duración exacta de cookies la fija la implementación existente (y debe verificarse con los tests de `AuthService`).
+
+---
+
+### 3.2 Permisos y rol
+
+- Tras el login:
+  - Se ejecuta `fetchPermissions()` desde `PermissionsContext`.
+- `PermissionsContext` mantiene en estado global (y donde aplique según implementación):
   - `permissions`
   - `role`
-- Esta información se usa para controlar qué secciones de la aplicación están visibles o activas.
 
-**KeepAlive de sesión**
+Esta información controla:
+- Qué secciones se ven.
+- Qué acciones están habilitadas (por ejemplo, fichaje manual, proyectos, registro/verificación de dispositivo, etc.).
 
-- `AuthService.isAuthenticated`:
+---
+
+## 4. KeepAlive de sesión y navegación protegida
+
+### 4.1 Verificación de sesión
+
+- `AuthService.isAuthenticated()`:
   - Llama a `/global/keepAlive`.
-  - Si la sesión sigue siendo válida, permite que el usuario continúe navegando.
-  - Si la sesión ha caducado, redirige a `/login` y fuerza un nuevo inicio de sesión.
+  - Si la sesión sigue siendo válida:
+    - Permite continuar navegando.
+  - Si la sesión caduca o no es válida:
+    - Redirige a `/login` para forzar un nuevo inicio de sesión.
 
-**Logout**
+---
 
-- `AuthService.logout`:
-  - Borra las cookies de sesión (`tokenIntranEK`, `name`, `permissions`, `role`).
+## 5. Logout
+
+- `AuthService.logout()`:
+  - Borra cookies relacionadas con la sesión (por ejemplo: `tokenIntranEK`, `name`, `permissions`, `role`).
   - Navega a `/login`.
 
+> Nota: el logout **no** tiene por qué borrar el email recordado.  
+> El email recordado se gestiona por la opción “Recordar mi email” y el botón “Olvidar email guardado”.
+
 ---
 
-## 3. Errores gestionados
+## 6. Errores gestionados
 
-- Errores de credenciales incorrectas:
-  - El servidor devuelve un error y `LoginForm` muestra un mensaje adecuado en la UI.
-- Errores de red o del servidor:
-  - Se notifican también desde la UI, sin dejar al usuario en un estado inconsistente.
+- Credenciales incorrectas:
+  - El backend devuelve error y `LoginForm` muestra un mensaje en UI (y toast).
+- Error de red/servidor:
+  - Se notifica en UI sin dejar al usuario en estado inconsistente.
 - Sesión caducada:
-  - `isAuthenticated` detecta el problema y redirige de nuevo a `/login`, evitando pantallas en blanco.
+  - `isAuthenticated()` detecta el problema y fuerza navegación a `/login`.
 
 ---
 
-## 4. Cobertura prevista con tests unitarios
+## 7. Cobertura prevista con tests unitarios
 
-Los tests unitarios para este flujo deberán comprobar, como mínimo:
+Los tests unitarios para este flujo deberían comprobar, como mínimo:
 
-1. Que `AuthService.login` guarda las cookies correctas y respeta la expiración de 30 días / 8 horas según `_remember_me`.
-2. Que `AuthService.fetchPermissions` almacena correctamente `permissions` y `role` en cookies y en `PermissionsContext`.
-3. Que `AuthService.isAuthenticated`:
-   - Mantiene la sesión cuando `/global/keepAlive` responde correctamente.
-   - Fuerza logout y redirección a `/login` cuando la sesión no es válida.
-4. Que `AuthService.logout` borra todas las cookies relacionadas con la sesión y navega a `/login`.
+1. **Validación de UI**
+   - No permite login si el email es inválido.
+   - No permite login si la contraseña está vacía.
+
+2. **Persistencia del email**
+   - Si `_remember_me = true` y login exitoso:
+     - Guarda email en `localStorage`.
+   - Si `_remember_me = false` y login exitoso:
+     - Elimina email de `localStorage`.
+   - “Olvidar email guardado” elimina el email y limpia estado.
+
+3. **Autenticación**
+   - `AuthService.login` llama a `/login_check` y gestiona el resultado según contrato actual.
+   - En caso de `firstTime = true` navega a `/change-password`.
+
+4. **Permisos**
+   - `fetchPermissions()` se ejecuta tras login y actualiza el contexto.
+
+5. **KeepAlive**
+   - `AuthService.isAuthenticated` mantiene sesión cuando `/global/keepAlive` es válido.
+   - Redirige a `/login` cuando no es válido.
+
+6. **Logout**
+   - `AuthService.logout` elimina cookies de sesión y navega a `/login`.

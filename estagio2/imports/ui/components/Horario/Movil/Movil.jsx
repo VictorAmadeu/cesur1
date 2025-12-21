@@ -26,12 +26,11 @@ const Movil = () => {
       const response = await WorkSheduleService.getWorkShedule({
         startDate,
         endDate
-      })
-      console.log(response)
+      });
       setScheduleByDate(response);
       setLoading(false);
     } catch (e) {
-      console.log(e)
+      console.error(e);
       setLoading(false);
     }
   }
@@ -39,16 +38,14 @@ const Movil = () => {
   const reqExtra = async ({ startDate, endDate }) => {
     try {
       setLoading(true);
-      console.log("reqExtra", startDate, endDate)
       const response = await WorkSheduleService.checkExtraSegment({
         startDate: startDate,
         endDate: endDate
-      })
-      console.log("resExtra", response)
+      });
       setExtraSegments(response);
       setLoading(false);
     } catch (e) {
-      console.log(e)
+      console.error(e);
       setLoading(false);
     }
   }

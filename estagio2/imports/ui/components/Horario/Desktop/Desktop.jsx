@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import WorkSheduleService from '/imports/service/workShedule';
-import MovilCard from '../Movil/MovilCard';
+import MovilCard from '../movil/MovilCard';
 import { useDate } from '/imports/provider/date';
 
 const Desktop = () => {

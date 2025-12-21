@@ -1,9 +1,19 @@
 // imports/ui/components/Header/Header.jsx
+//
+// Header único (Desktop + Móvil)
+//
+// Objetivos (producción):
+// - Unificar comportamiento entre master y Develop-Mobile.
+// - Mantener UI estable: logo fijo + bloque derecho (LogoHeader).
+// - Conservar mejora de master: cargar perfil para employeeName/companyName.
+// - Evitar errores de tooling (ESLint/TS en VSCode) sin tocar LogoHeader.jsx.
+//
+// Nota (guía Etapa 3):
+// - Header debe ser único y vivir en los Layouts (no duplicarlo en Nav). :contentReference[oaicite:1]{index=1}
 
 import React, { useEffect, useState } from "react";
-// Componente que pinta el bloque de la derecha del header (avatar, menú, etc.)
 import { LogoHeader } from "./LogoHeader";
-// Servicios de backend
+
 import CompanyService from "../../../service/companyService";
 import AuthService from "../../../service/authService";
 import UserService from "../../../service/userService";
@@ -11,32 +21,30 @@ import UserService from "../../../service/userService";
 /**
  * buildUserSummary
  * ----------------
- * A partir de la respuesta del perfil de usuario y de la compañía,
- * construye un objeto simple con:
- *  - employeeName: nombre completo del empleado
- *  - companyName: nombre de la empresa
+ * Normaliza la respuesta del perfil y devuelve:
+ *  - employeeName: nombre completo del empleado (si existe)
+ *  - companyName: nombre de la compañía (si existe)
  *
- * La función está preparada para que, si faltan datos, NO rompa nada
- * y simplemente devuelva cadenas vacías.
+ * Importante:
+ * - Función defensiva: si faltan campos, devuelve strings vacíos.
+ * - No cambia contratos ni “inventa” datos: solo normaliza y compone.
  */
 const buildUserSummary = (profilePayload, companyPayload) => {
-  // Normalizamos el posible formato de la respuesta:
-  //  - a veces puede venir como array en data[0]
-  //  - otras veces como objeto en data
+  // A veces el perfil puede venir como array en data[0] o como objeto en data
   const normalizedData = Array.isArray(profilePayload?.data)
     ? profilePayload.data[0]
     : profilePayload?.data || {};
 
-  // Construimos el nombre completo con las partes que existan
+  // Nombre completo (solo con piezas existentes)
   const pieces = [
     normalizedData.name || normalizedData.firstname,
     normalizedData.lastname1,
     normalizedData.lastname2,
-  ].filter(Boolean); // elimina undefined / null / ""
+  ].filter(Boolean);
 
   const employeeName = (pieces.length > 0 ? pieces.join(" ") : "").trim();
 
-  // Intentamos obtener el nombre de la empresa de distintos campos posibles
+  // Empresa desde distintos campos posibles del perfil
   const userCompany =
     normalizedData.company?.name ||
     normalizedData.company_name ||
@@ -45,96 +53,110 @@ const buildUserSummary = (profilePayload, companyPayload) => {
 
   return {
     employeeName,
-    // Si no viene nada en el perfil, usamos el nombre de la empresa del logo
+    // Si no viene empresa en perfil, intentamos fallback a lo que venga con el logo
     companyName: (userCompany || companyPayload?.company_name || "").trim(),
   };
 };
 
-/**
- * Header
- * ------
- * Componente principal del header superior:
- *  - Carga logo y rol desde los servicios actuales.
- *  - Llama al perfil de usuario para obtener nombre y empresa.
- *  - Mientras carga, pinta un contenedor vacío con la altura del header.
- *  - Cuando termina, renderiza el logo de Intranek a la izquierda
- *    y el bloque <LogoHeader /> a la derecha.
- */
 export const Header = () => {
-  const [loading, setLoading] = useState(true); // Controla estado de carga
-  const [logo, setLogo] = useState(); // Datos de logo y empresa
-  const [role, setRole] = useState("ROLE_USER"); // Rol del usuario logueado
+  const [loading, setLoading] = useState(true);
+
+  // Logo y rol
+  const [logo, setLogo] = useState("");
+  const [role, setRole] = useState("ROLE_USER");
+
+  // Nombre empleado + empresa (como en master)
   const [userSummary, setUserSummary] = useState({
     employeeName: "",
     companyName: "",
-  }); // Nombre de empleado + empresa
+  });
 
-  // useEffect de montaje: se ejecuta una sola vez al cargar el componente
-  useEffect(() => {
-    loadHeaderData();
-  }, []);
+  /**
+   * LogoHeaderAny
+   *
+   * En este repo, VSCode/TS puede inferir props de LogoHeader de forma inconsistente
+   * (a veces exige employeeName/companyName y otras veces dice que “no existen”).
+   * Para NO tocar LogoHeader.jsx y NO romper producción:
+   * - lo casteamos a `any` SOLO a nivel de editor/tooling.
+   * - el runtime no cambia.
+   */
+  const LogoHeaderAny = /** @type {any} */ (LogoHeader);
 
   /**
    * loadHeaderData
    * --------------
    * Recupera en paralelo:
-   *  - Logo / datos de compañía
-   *  - Perfil de usuario
-   *  - Rol del usuario
+   * - Logo / datos de compañía
+   * - Perfil de usuario
+   * - Rol del usuario
    *
-   * Con esa información actualiza el estado del header.
+   * Si algo falla:
+   * - No rompemos UI: dejamos valores seguros.
    */
   const loadHeaderData = async () => {
     try {
       setLoading(true);
 
-      // Llamamos a logo y perfil en paralelo para ser más eficientes
+      // Logo + perfil en paralelo (como tu master)
       const [logoResponse, profileResponse] = await Promise.all([
         CompanyService.getLogo(),
         UserService.profile(),
       ]);
 
-      // Guardamos logo (si viene vacío, dejamos cadena vacía para evitar errores)
       setLogo(logoResponse ?? "");
-      // Obtenemos el rol usando el servicio ya existente
-      setRole(AuthService.getRole());
-      // Construimos y guardamos nombre de empleado + empresa
+
+      // Rol (compatible con getRole como función o valor)
+      const roleValue =
+        typeof AuthService.getRole === "function" ? AuthService.getRole() : AuthService.getRole;
+
+      setRole(roleValue ?? "ROLE_USER");
+
+      // Nombre y empresa (defensivo)
       setUserSummary(buildUserSummary(profileResponse, logoResponse));
     } catch (error) {
-      // En caso de error, lo mostramos en consola para poder depurarlo
-      // pero evitamos que la app se rompa.
+      // eslint-disable-next-line no-console
       console.error("Error al cargar los datos del header", error);
+
+      // Valores seguros (no UI rota)
+      setLogo("");
+      setRole("ROLE_USER");
+      setUserSummary({ employeeName: "", companyName: "" });
     } finally {
-      // Pase lo que pase (éxito o error), dejamos de estar en modo loading
       setLoading(false);
     }
   };
 
-  return (
-    <>
-      {loading ? (
-        // Mientras carga, dejamos reservada la altura del header
-        <header className="headerMain">
-          <div className="header h-[65px]"></div>
-        </header>
-      ) : (
-        // Cuando ya tenemos la información, pintamos el header completo
-        <header className="headerMain">
-          <div className="header">
-            {/* Logo fijo de Intranek a la izquierda */}
-            <img className="logo" src="/images/general/logo.png" />
+  useEffect(() => {
+    loadHeaderData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-            {/* Bloque de la derecha: avatar + menú + (futuro) nombre/empresa */}
-            <LogoHeader
-              logo={logo}
-              role={role}
-              // Nuevos props para poder mostrar nombre y empresa al lado del icono
-              employeeName={userSummary.employeeName}
-              companyName={userSummary.companyName}
-            />
-          </div>
-        </header>
-      )}
-    </>
+  // Placeholder para reservar altura y evitar “saltos” de layout
+  if (loading) {
+    return (
+      <header className="headerMain">
+        <div className="header h-[65px]" />
+      </header>
+    );
+  }
+
+  return (
+    <header className="headerMain">
+      <div className="header">
+        {/* Logo fijo de Intranek */}
+        <img className="logo" src="/images/general/logo.png" alt="Intranek" />
+
+        {/* Bloque derecho (LogoHeader)
+            - En master ya usabas employeeName/companyName (si existen).
+            - En móvil, si LogoHeader no los usa, simplemente los ignora.
+            - El cast a Any evita errores “fantasma” de TS en VSCode. */}
+        <LogoHeaderAny
+          logo={logo}
+          role={role}
+          employeeName={userSummary.employeeName}
+          companyName={userSummary.companyName}
+        />
+      </div>
+    </header>
   );
 };

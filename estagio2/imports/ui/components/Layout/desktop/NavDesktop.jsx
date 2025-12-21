@@ -1,17 +1,18 @@
 // C:\Proyectos\intranek\imports\ui\components\Layout\desktop\NavDesktop.jsx
 // @ts-nocheck
-// Barra de navegación de ESCRITORIO (versión web/Skytop).
+// Barra de navegacion de ESCRITORIO (version web/Skytop).
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Header } from '../../Header/Header';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '../../../../context/permissionsContext';
 import LicenseService from '/imports/service/licenseService';
+import { NAV_CONFIG, canAccess, buildBadgeCtx, getBadgeValue } from '../navConfig';
 
 // Azul corporativo reutilizado de mobile (bgAzulO en client/css/home.css)
 const BRAND_DARK_BLUE = '#1674a3';
 
-// URL canónica del listado de Ausencias/Vacaciones en el ADMIN.
+// URL canonica del listado de Ausencias/Vacaciones en el ADMIN.
 // Se usa tanto en el modal de pendientes como referencia centralizada.
 const ADMIN_ABSENCES_URL =
   'https://admin.intranek.com/dashboard?crudControllerFqcn=App%5CController%5CAdmin%5CLicenseCrudController&crudAction=index';
@@ -19,7 +20,7 @@ const ADMIN_ABSENCES_URL =
 /**
  * MenuItem
  * ----------
- * Botón principal del menú superior (Inicio, Control de tiempos, etc.).
+ * Boton principal del menu superior (Inicio, Control de tiempos, etc.).
  * Se pinta como <button> para poder gestionar hover y click en escritorio.
  */
 const MenuItem = ({ label, icon, onClick, onMouseEnter }) => (
@@ -44,8 +45,8 @@ const MenuItem = ({ label, icon, onClick, onMouseEnter }) => (
 /**
  * SubMenuItem
  * ------------
- * Elemento individual dentro del submenú desplegable.
- * Puede mostrar un pequeño badge numérico (aprobaciones pendientes).
+ * Elemento individual dentro del submenu desplegable.
+ * Puede mostrar un pequeno badge numerico (aprobaciones pendientes).
  */
 const SubMenuItem = ({ label, onClick, badge }) => (
   <li
@@ -74,7 +75,7 @@ const SubMenuItem = ({ label, onClick, badge }) => (
         }}
       >
         {label}
-        {/* Badge rojo con el número de aprobaciones pendientes */}
+        {/* Badge rojo con el numero de aprobaciones pendientes */}
         {badge > 0 && (
           <span
             style={{
@@ -140,7 +141,7 @@ const PendingBanner = ({ count, onView }) => {
  * PendingModal
  * --------------
  * Modal sencillo que muestra un listado de aprobaciones pendientes
- * (tipo, empleado y rango de fechas) y un botón para abrir el Admin.
+ * (tipo, empleado y rango de fechas) y un boton para abrir el Admin.
  */
 const PendingModal = ({ open, onClose, items }) => {
   if (!open) return null;
@@ -186,12 +187,13 @@ const PendingModal = ({ open, onClose, items }) => {
               fontSize: '18px',
               cursor: 'pointer',
             }}
+            aria-label="Cerrar"
           >
-            ×
+            &times;
           </button>
         </div>
 
-        {/* Contenido del modal: lista o mensaje vacío */}
+        {/* Contenido del modal: lista o mensaje vacio */}
         {items.length === 0 ? (
           <p style={{ marginTop: '12px' }}>Nada pendiente ahora mismo.</p>
         ) : (
@@ -276,10 +278,10 @@ const PendingModal = ({ open, onClose, items }) => {
 /**
  * NavDesktop
  * -----------
- * Barra de navegación de la versión web/escritorio.
+ * Barra de navegacion de la version web/escritorio.
  *
  * - Muestra el Header (logo + bloque usuario).
- * - Pinta el menú superior con el azul corporativo.
+ * - Pinta el menu superior con el azul corporativo.
  * - Para roles supervisor/admin:
  *   - Consulta aprobaciones pendientes al cargar.
  *   - Muestra banner superior y badge en "Ausencias".
@@ -292,40 +294,43 @@ const NavDesktop = () => {
   // role: rol del usuario (empleado, supervisor, admin, etc.)
   const { permissions, role } = usePermissions();
 
-  // Número total de aprobaciones pendientes
+  // Numero total de aprobaciones pendientes
   const [pendingCount, setPendingCount] = useState(0);
 
   // Lista corta de pendientes para mostrar en el modal
   const [pendingList, setPendingList] = useState([]);
 
-  // Controla si el modal está abierto o cerrado
+  // Controla si el modal esta abierto o cerrado
   const [showModal, setShowModal] = useState(false);
 
   /**
    * Determina si el usuario actual es un aprobador
    * (supervisor, admin o super admin).
    */
-  const isApprover = (() => {
+  const isApprover = useMemo(() => {
     if (!role) return false;
 
     // Algunos proyectos guardan el rol como array; lo cubrimos por seguridad.
     if (Array.isArray(role)) {
       return role.some(
-        (r) => r.includes('SUPERVISOR') || r.includes('ADMIN')
+        (r) =>
+          String(r).includes('SUPERVISOR') ||
+          String(r).includes('ADMIN') ||
+          String(r).includes('SUPER_ADMIN')
       );
     }
 
     // Caso normal: rol como string
     return (
-      role.includes('SUPERVISOR') ||
-      role.includes('ADMIN') ||
-      role.includes('SUPER_ADMIN')
+      String(role).includes('SUPERVISOR') ||
+      String(role).includes('ADMIN') ||
+      String(role).includes('SUPER_ADMIN')
     );
-  })();
+  }, [role]);
 
   /**
    * Llama a la API /license/pending-summary para
-   * obtener el número de aprobaciones pendientes y
+   * obtener el numero de aprobaciones pendientes y
    * una lista resumida.
    */
   const fetchPending = async () => {
@@ -359,87 +364,48 @@ const NavDesktop = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isApprover]);
 
-  // Abre el submenú cuando el ratón entra en un elemento del menú.
+  // Contexto estandar para badges (navConfig).
+  const badgeCtx = useMemo(
+    () => buildBadgeCtx({ isApprover, pendingCount }),
+    [isApprover, pendingCount]
+  );
+
+  // Definicion de las secciones que aparecen en la barra de navegacion superior.
+  const routes = useMemo(() => {
+    return NAV_CONFIG.filter((section) => canAccess(permissions, section.permission)).map(
+      (section) => {
+        const submenu =
+          Array.isArray(section.children) && section.children.length > 0
+            ? section.children
+                .filter((child) => canAccess(permissions, child.permission))
+                .map((child) => ({
+                  path: child.path,
+                  label: child.label,
+                  onClick: () => navigate(child.path),
+                  badge: getBadgeValue(child.badge, badgeCtx),
+                }))
+            : null;
+
+        return {
+          path: section.path,
+          label: section.desktopLabel || section.label,
+          icon: section.icon,
+          onClick: section.path ? () => navigate(section.path) : undefined,
+          submenu,
+        };
+      }
+    );
+  }, [permissions, navigate, badgeCtx]);
+
+  // Abre el submenu cuando el raton entra en un elemento del menu.
   const handleMouseEnter = (label) => {
     setActiveSubMenu(label);
   };
 
-  // Cierra el submenú cuando el ratón sale del elemento del menú.
+  // Cierra el submenu cuando el raton sale del elemento del menu.
   const handleMouseLeave = () => {
     setActiveSubMenu(null);
   };
-
-  // Definición de las secciones que aparecen en la barra de navegación superior.
-  const routes = [
-    {
-      path: '/',
-      label: 'Inicio',
-      icon: 'fa-solid fa-house',
-      onClick: () => navigate('/'),
-    },
-    {
-      label: 'Control de tiempos',
-      icon: 'fa-solid fa-stopwatch',
-      submenu: [
-        {
-          path: '/registrar-tiempo',
-          label: 'Fichar',
-          onClick: () => navigate('/registrar-tiempo'),
-        },
-        ...(permissions.applyAssignedSchedule
-          ? [
-              {
-                path: '/justification',
-                label: 'Justificar registros',
-                onClick: () => navigate('/justification'),
-              },
-            ]
-          : []),
-        {
-          path: '/ver-tiempo',
-          label: 'Mis tiempos',
-          onClick: () => navigate('/ver-tiempo'),
-        },
-      ],
-    },
-    {
-      label: 'Rincón del empleado',
-      icon: 'fa-solid fa-user',
-      submenu: [
-        ...(permissions.allowDocument
-          ? [
-              {
-                path: '/documentos',
-                label: 'Documentos',
-                onClick: () => navigate('/documentos'),
-              },
-            ]
-          : []),
-        {
-          path: '/ausencia',
-          label: 'Ausencias',
-          onClick: () => navigate('/ausencia'),
-          // Badge de pendientes solo para aprobadores
-          badge: isApprover ? pendingCount : 0,
-        },
-        ...(permissions.allowWorkSchedule
-          ? [
-              {
-                path: '/horario',
-                label: 'Horario',
-                onClick: () => navigate('/horario'),
-              },
-            ]
-          : []),
-      ],
-    },
-    {
-      path: '/perfil',
-      label: 'Mi cuenta',
-      icon: 'fa-solid fa-address-card',
-      onClick: () => navigate('/perfil'),
-    },
-  ];
 
   return (
     <div>
@@ -454,9 +420,9 @@ const NavDesktop = () => {
         />
       )}
 
-      {/* Barra de navegación de escritorio.
+      {/* Barra de navegacion de escritorio.
           IMPORTANTE: el fondo se fuerza al azul oscuro corporativo
-          para alinearlo con los menús desplegables de móvil. */}
+          para alinearlo con los menus desplegables de movil. */}
       <nav className="navPC" style={{ backgroundColor: BRAND_DARK_BLUE }}>
         <ul className="lista">
           {routes.map((route, index) => (
@@ -476,7 +442,7 @@ const NavDesktop = () => {
                     onClick={route.onClick}
                   />
 
-                  {/* Submenú desplegable, mismo azul oscuro que la barra */}
+                  {/* Submenu desplegable, mismo azul oscuro que la barra */}
                   {activeSubMenu === route.label && (
                     <ul
                       className="absolute top-full left-0 w-full flex flex-col items-start p-0 z-[9999]"
