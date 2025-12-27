@@ -3,5 +3,6 @@ android/
 build/
 *.apk
 *.keystore
+mobile-config/
 coverage/
 coverage/**/*

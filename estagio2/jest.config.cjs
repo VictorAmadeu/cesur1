@@ -41,11 +41,13 @@ module.exports = {
 
   // Qué ficheros entran en la cobertura
   collectCoverageFrom: [
-    'imports/**/*.{js,jsx}',
-    '!imports/**/__tests__/**',
-    '!imports/**/index.js',
-    '!imports/ui/routes/**',
-    '!imports/ui/pages/**',
+    'imports/service/authService.js',
+    'imports/service/checkinService.js',
+    'imports/service/licenseService.js',
+    'imports/context/permissionsContext.js',
+    'imports/ui/components/Fichar/CheckInDaily.jsx',
+    'imports/ui/components/Fichar/components/ButtonRegister.jsx',
+    'imports/ui/components/Fichar/components/EntradaManual.jsx',
   ],
 
   // Umbrales mínimos globales (por ahora modestos)

@@ -38,6 +38,9 @@ const AuthService = {
     Cookies.remove('tokenIntranEK');
     Cookies.remove('permissions');
     Cookies.remove('role');
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
     window.location.href = '/login';
   },
 

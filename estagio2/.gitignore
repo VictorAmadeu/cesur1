@@ -5,3 +5,17 @@ build/
 ./build
 assets-temp/
 coverage/
+
+# Cordova sync (NO commitear: se generan con prepare/restore)
+/mobile-config.js
+/config.xml
+/settings-development-mobile.json
+/settings-development-mobile-emulator.json
+/.meteor/cordova-plugins.web
+/.cordova-sync-backup/
+/resources/android/
+/cordova-build-override/
+/assets/icons/android/
+/types/cordova-app.d.ts
+
+

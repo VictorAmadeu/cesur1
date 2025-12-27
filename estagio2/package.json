@@ -2,7 +2,7 @@
   "name": "intranek",
   "version": "1.1.0",
   "appVersion": "v1.1",
-  "description": "Intranek - Intranet Solution",
+  "description": "Intranek - Intranet Solution (Web + Mobile/Cordova)",
   "env": "dev",
   "private": true,
   "scripts": {
@@ -16,7 +16,9 @@
     "test:context": "jest imports/context/ --coverage",
     "test:components": "jest imports/ui/components/Fichar/ --coverage",
     "test-app": "TEST_WATCH=1 meteor test --full-app --driver-package meteortesting:mocha",
-    "visualize": "meteor --production --extra-packages bundle-visualizer"
+    "visualize": "meteor --production --extra-packages bundle-visualizer",
+    "start:mobile": "powershell -ExecutionPolicy Bypass -Command \"& { $env:CLEAR_HTTP='1'; & scripts\\cordova-sync.ps1 -Mode prepare; meteor run android --settings mobile-config\\settings-development-mobile.json }\"",
+    "build:android": "powershell -ExecutionPolicy Bypass -Command \"& { $env:CLEAR_HTTP='0'; & scripts\\cordova-sync.ps1 -Mode prepare; meteor run android --settings settings-production.json }\""
   },
   "dependencies": {
     "@babel/runtime": "^7.24.1",
@@ -60,6 +62,8 @@
     "@testing-library/react": "^16.3.0",
     "autoprefixer": "^10.4.20",
     "babel-jest": "^30.2.0",
+    "cordova": "^12.0.0",
+    "cordova-android": "^12.0.0",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-meteor": "^7.3.0",
