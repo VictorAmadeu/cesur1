@@ -53,7 +53,7 @@ body {
   font-size: 14px;
 }
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
   body {
     font-size: 18px;
   }
@@ -202,7 +202,7 @@ body {
   font-size: 11px;
 }
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .header {
     max-width: 1200px;
     margin: auto;
@@ -224,7 +224,7 @@ body {
   }
 }
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .header .logo {
     max-height: 50px;
   }
@@ -308,7 +308,7 @@ body {
   display: none;
 }
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
   .navPC {
     width: 100%;
     background: #3a94cc;

@@ -12,7 +12,7 @@
     .descargasAntiguas {margin: 50px auto 50px;}
     }
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
 .descargasContainer {max-width: 500px; margin: auto;}
 .descargas .lineaSeparacion {max-width: 500px;}
 .descargasActual {margin-bottom: 30px;}

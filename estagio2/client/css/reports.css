@@ -29,6 +29,6 @@
 .informePlato .platoNombre p {font-size: 18px;}
 .platoValoracion .platoEstrellas {justify-content:left;}
 }
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
 .informePlato {max-width: 500px; margin: auto;}
 }

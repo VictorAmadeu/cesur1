@@ -13,7 +13,7 @@
 .perfilDatos .buttonSiNo input {width: auto; margin:5px;}
 .perfilDatos .buttonSiNo label {margin-right: 6px;}
 
-@media (min-width: 1100px) and (orientation: landscape) {
+@media (min-width: 1024px) and (orientation: landscape) {
 .botonPre, .profile {max-width: 500px; margin: auto;}
 .botonContainer {margin: 0 auto 20px;}
 }
